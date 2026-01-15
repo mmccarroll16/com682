@@ -13,7 +13,7 @@ const UPLOAD_URL = CIA_IMAGES_URL; // upload metadata + image
 const DELETE_URL = DIA_URL;
 
 // Set the blob base URL so images render (container path is included in filePath)
-const IMAGE_BASE_URL = "https://localbitestorageaccountz38.blob.core.windows.net";
+const IMAGE_BASE_URL = "https://localbitestorageaccount.blob.core.windows.net";
 
 // If Logic App stores a media.url, set true to render from it (not the case with RIA_IMAGES)
 const USE_MEDIA_URL = false;
@@ -72,9 +72,19 @@ async function renderAssets() {
     for (const d of docs) {
       const urlFromMedia = USE_MEDIA_URL ? d?.media?.url : null;
       const path = d.filePath || d.fileLocator || "";
+      const file = d.fileName || "";
+      const combinedPath = (() => {
+        if (!path) return "";
+        const trimmed = path.startsWith("/") ? path.slice(1) : path;
+        // If file name is not already part of the path, append it
+        if (file && !trimmed.endsWith(file)) {
+          return `${trimmed}/${file}`;
+        }
+        return trimmed;
+      })();
       const urlFromPath =
-        IMAGE_BASE_URL && path
-          ? `${IMAGE_BASE_URL}${path.startsWith("/") ? "" : "/"}${path}`
+        IMAGE_BASE_URL && combinedPath
+          ? `${IMAGE_BASE_URL}/${combinedPath}`
           : null;
       const imgUrl = urlFromMedia ?? urlFromPath ?? "";
       const div = document.createElement("div");
