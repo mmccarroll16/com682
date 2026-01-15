@@ -2,7 +2,7 @@
 const CIA_URL = "https://prod-02.italynorth.logic.azure.com/workflows/438f49f8253b4c6899482f6ac1bfa072/triggers/When_an_HTTP_request_is_received/paths/invoke/rest/v1/assets?api-version=2016-10-01&sp=%2Ftriggers%2FWhen_an_HTTP_request_is_received%2Frun&sv=1.0&sig=eqZYTEoJrYYYR7-JwgT12Kq9O-So9-KbilcscE3qL9E";
 const CIA_IMAGES_URL = "https://prod-12.italynorth.logic.azure.com:443/workflows/2200a2abcb2d4b72916e5903b8009c15/triggers/When_an_HTTP_request_is_received/paths/invoke?api-version=2016-10-01&sp=%2Ftriggers%2FWhen_an_HTTP_request_is_received%2Frun&sv=1.0&sig=ogcc4lng3zhf4SOs6dVE15c9o3fXcPkjNC6q0MZrFR8";
 // Delete endpoint (use assets path; Logic App trigger expects POST)
-const DIA_URL = "https://prod-06.italynorth.logic.azure.com/workflows/66f84f42ed204cad8460e53e61c91a2b/triggers/When_an_HTTP_request_is_received/paths/invoke/rest/v1/assets/{id}?api-version=2016-10-01&sp=%2Ftriggers%2FWhen_an_HTTP_request_is_received%2Frun&sv=1.0&sig=6kY1LTq8-39mk8ePr1LddlF6qcnv1gxarAVYet0GNRM";
+const DIA_URL = "https://prod-06.italynorth.logic.azure.com/workflows/66f84f42ed204cad8460e53e61c91a2b/triggers/When_an_HTTP_request_is_received/paths/invoke/rest/v1/assests/%7Bid%7D?api-version=2016-10-01&sp=%2Ftriggers%2FWhen_an_HTTP_request_is_received%2Frun&sv=1.0&sig=6kY1LTq8-39mk8ePr1LddlF6qcnv1gxarAVYet0GNRM";
 const RAA_URL = "https://prod-03.italynorth.logic.azure.com/workflows/60d0ac063b2b4b719b11d3682a9a9a0c/triggers/When_an_HTTP_request_is_received/paths/invoke/rest/v1/assets?api-version=2016-10-01&sp=%2Ftriggers%2FWhen_an_HTTP_request_is_received%2Frun&sv=1.0&sig=kkJoDMv_3TUZ3YRMdFMxZ-i0FZTsxcRt3GvbPAoDNEs";
 const RIA_URL = "https://prod-00.italynorth.logic.azure.com/workflows/d0af0d70328d47a8ad27f7c25e035de9/triggers/When_an_HTTP_request_is_received/paths/invoke/rests/assets/{id}?api-version=2016-10-01&sp=%2Ftriggers%2FWhen_an_HTTP_request_is_received%2Frun&sv=1.0&sig=xrq9bm3gWPRFCBQJ0ete6qnfTf9KK5PySeme7YzwprE";
 const RIA_IMAGES_URL = "https://prod-06.italynorth.logic.azure.com:443/workflows/7699903ea01b48f3adb9fc50033dd1c8/triggers/When_an_HTTP_request_is_received/paths/invoke?api-version=2016-10-01&sp=%2Ftriggers%2FWhen_an_HTTP_request_is_received%2Frun&sv=1.0&sig=CUwD8epstITJInT-mbEJ1RnOeX5_Cz-vfciUlDbb46E";
@@ -76,9 +76,14 @@ async function deleteAsset({ id, restaurantId }) {
   const targetId = restaurantId || id;
   const url = DELETE_URL.replace("{id}", encodeURIComponent(targetId));
 
-  console.log("DELETE request", { method: "DELETE", url });
+  console.log("DELETE request", { method: "DELETE", url, targetId });
 
-  const res = await fetch(url, { method: "DELETE" });
+  const res = await fetch(url, {
+    method: "DELETE",
+    headers: {
+      Accept: "application/json"
+    }
+  });
   if (!res.ok) {
     const text = await res.text();
     throw new Error(`Delete failed: ${res.status} ${text}`);
@@ -143,7 +148,8 @@ async function renderAssets() {
       const div = document.createElement("div");
       div.className = "item";
 
-      const restaurantId = toStr(d.restaurantId ?? d.RestaurantId ?? d.restaurantID ?? d.id);
+      // Prefer restaurantId; do NOT fall back to blob id
+      const restaurantId = toStr(d.restaurantId ?? d.RestaurantId ?? d.restaurantID);
       const restaurantName = toStr(d.restaurantName ?? d.RestaurantName);
       const address = toStr(d.address ?? d.Address);
       const city = toStr(d.city ?? d.City);
@@ -229,6 +235,7 @@ $("gallery").addEventListener("click", async (e) => {
     }
     if (!confirm("Delete this image?")) return;
     try {
+      console.log("Delete click restaurantId", restaurantId);
       await deleteAsset({ restaurantId });
       card.remove();
     } catch (err) {
