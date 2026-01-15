@@ -13,8 +13,9 @@ const LIST_ASSETS_URL = RIA_IMAGES_URL; // returns image records with base64 fie
 const UPLOAD_URL = CIA_IMAGES_URL; // upload metadata + image
 const DELETE_URL = DIA_URL;
 
-// Set the blob base URL (account-level; path includes container)
-const IMAGE_BASE_URL = "https://localbitesblob.blob.core.windows.net";
+// Blob storage config
+const BLOB_BASE = "https://localbitesblob.blob.core.windows.net";
+const CONTAINER = "localbitesimages";
 
 // If Logic App stores a media.url, set true to render from it (not the case with RIA_IMAGES)
 const USE_MEDIA_URL = false;
@@ -32,6 +33,24 @@ const decodeMaybeBase64 = (val) => {
   return val;
 };
 
+const buildBlobUrl = (record) => {
+  if (!record) return "";
+  const rawPath = record.path || record.filePath || record.fileLocator || "";
+  const file = record.fileName || "";
+
+  let path = rawPath.trim();
+  if (path.startsWith("/")) path = path.slice(1);
+  if (path.toLowerCase().startsWith(`${CONTAINER.toLowerCase()}/`)) {
+    path = path.slice(CONTAINER.length + 1);
+  }
+  if (path.endsWith("/")) path = path.slice(0, -1);
+
+  const hasFileInPath = file && path.toLowerCase().endsWith(file.toLowerCase());
+  const blobName = hasFileInPath ? path : [path, file].filter(Boolean).join("/");
+  if (!blobName) return "";
+  return `${BLOB_BASE}/${CONTAINER}/${blobName}`;
+};
+
 async function fetchAllAssets() {
   const res = await fetch(LIST_ASSETS_URL);
   if (!res.ok) throw new Error(`Failed: ${res.status}`);
@@ -41,7 +60,8 @@ async function fetchAllAssets() {
     ...d,
     fileName: decodeMaybeBase64(d.fileName),
     userID: decodeMaybeBase64(d.userID),
-    userName: decodeMaybeBase64(d.userName)
+    userName: decodeMaybeBase64(d.userName),
+    path: decodeMaybeBase64(d.path || d.filePath || d.fileLocator || "")
   }));
 }
 
@@ -73,35 +93,23 @@ async function renderAssets() {
     }
 
     for (const d of docs) {
-      const urlFromMedia = USE_MEDIA_URL ? d?.media?.url : null;
-      const path = d.filePath || d.fileLocator || "";
-      const file = d.fileName || "";
-      const combinedPath = (() => {
-        let trimmed = path.startsWith("/") ? path.slice(1) : path;
-        if (trimmed.startsWith("localbitesimages/")) {
-          trimmed = trimmed.replace(/^localbitesimages\//, "");
-        }
-        if (file && trimmed && !trimmed.endsWith(file)) {
-          return `localbitesimages/${trimmed}/${file}`;
-        }
-        if (file && !trimmed) {
-          return `localbitesimages/${file}`;
-        }
-        return trimmed || "";
-      })();
-      const urlFromPath =
-        IMAGE_BASE_URL && combinedPath ? `${IMAGE_BASE_URL}/${combinedPath}` : null;
-      const imgUrl = urlFromMedia ?? urlFromPath ?? "";
+      const imgUrl = USE_MEDIA_URL ? d?.media?.url : buildBlobUrl(d);
       const div = document.createElement("div");
       div.className = "item";
-      div.innerHTML = `
-        <img src="${imgUrl}" alt="${d.fileName ?? "image"}" />
+
+      const img = document.createElement("img");
+      img.src = imgUrl;
+      img.alt = d.fileName ?? "image";
+      img.onerror = () => console.error("Blob load failed", { url: imgUrl, record: d });
+
+      div.appendChild(img);
+      div.innerHTML += `
         <div class="small"><b>File:</b> ${d.fileName ?? ""}</div>
         <div class="small"><b>Restaurant:</b> ${d.restaurantId ?? d.restaurantID ?? ""}</div>
         <div class="small"><b>User:</b> ${d.userName ?? ""} (${d.userID ?? ""})</div>
         <div class="small"><b>Rating:</b> ${d.rating ?? ""}</div>
         <div class="small"><b>Comment:</b> ${d.comment ?? ""}</div>
-        <div class="small"><b>Path:</b> ${d.filePath ?? d.fileLocator ?? ""}</div>
+        <div class="small"><b>Path:</b> ${d.path ?? d.filePath ?? d.fileLocator ?? ""}</div>
         <div class="small"><b>ID:</b> ${d.id ?? ""}</div>
         <button type="button" data-id="${d.id}" data-restaurant="${d.restaurantId ?? d.restaurantID ?? ""}">Delete</button>
       `;
