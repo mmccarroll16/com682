@@ -8,20 +8,41 @@ const RIA_IMAGES_URL = "https://prod-06.italynorth.logic.azure.com:443/workflows
 const UIA_URL = "https://prod-09.italynorth.logic.azure.com/workflows/33da03811d18412db6e949fd7859b51b/triggers/When_an_HTTP_request_is_received/paths/invoke/rest/assets/{id}?api-version=2016-10-01&sp=%2Ftriggers%2FWhen_an_HTTP_request_is_received%2Frun&sv=1.0&sig=aQ5q3EGKjL4wdj_SHE4KVEQl98wPXpOJGP1DwjF8D0c";
 
 // Active endpoints in use
-const LIST_ASSETS_URL = RAA_URL;
-const UPLOAD_URL = CIA_IMAGES_URL; // uses image upload + metadata Logic App
+const LIST_ASSETS_URL = RIA_IMAGES_URL; // returns image records with base64 fields
+const UPLOAD_URL = CIA_IMAGES_URL; // upload metadata + image
 const DELETE_URL = DIA_URL;
 
-// If Logic App stores a media.url, set true to render from it
-const USE_MEDIA_URL = true;
+// If your images live in blob storage, set the base URL to build image links, e.g.:
+// const IMAGE_BASE_URL = "https://<storage-account>.blob.core.windows.net";
+const IMAGE_BASE_URL = "";
+
+// If Logic App stores a media.url, set true to render from it (not the case with RIA_IMAGES)
+const USE_MEDIA_URL = false;
 
 const $ = (id) => document.getElementById(id);
+
+const decodeMaybeBase64 = (val) => {
+  if (val && typeof val === "object" && "$content" in val) {
+    try {
+      return atob(val["$content"]);
+    } catch (e) {
+      return val["$content"];
+    }
+  }
+  return val;
+};
 
 async function fetchAllAssets() {
   const res = await fetch(LIST_ASSETS_URL);
   if (!res.ok) throw new Error(`Failed: ${res.status}`);
   const data = await res.json();
-  return Array.isArray(data) ? data : (data.Documents ?? data.documents ?? []);
+  const docs = Array.isArray(data) ? data : (data.Documents ?? data.documents ?? []);
+  return docs.map((d) => ({
+    ...d,
+    fileName: decodeMaybeBase64(d.fileName),
+    userID: decodeMaybeBase64(d.userID),
+    userName: decodeMaybeBase64(d.userName)
+  }));
 }
 
 async function deleteAsset(id) {
@@ -43,15 +64,18 @@ async function renderAssets() {
     }
 
     for (const d of docs) {
-      const url = USE_MEDIA_URL ? d?.media?.url : null;
+      const urlFromMedia = USE_MEDIA_URL ? d?.media?.url : null;
+      const urlFromPath = IMAGE_BASE_URL && d.filePath ? `${IMAGE_BASE_URL}${d.filePath}` : null;
+      const imgUrl = urlFromMedia ?? urlFromPath ?? "";
       const div = document.createElement("div");
       div.className = "item";
       div.innerHTML = `
-        <img src="${url ?? ""}" alt="${d.fileName ?? "image"}" />
-        <div class="small"><b>Restaurant:</b> ${d.restaurantId ?? ""}</div>
+        <img src="${imgUrl}" alt="${d.fileName ?? "image"}" />
+        <div class="small"><b>Restaurant:</b> ${d.restaurantId ?? d.restaurantID ?? ""}</div>
         <div class="small"><b>User:</b> ${d.userName ?? ""} (${d.userID ?? ""})</div>
         <div class="small"><b>Rating:</b> ${d.rating ?? ""}</div>
         <div class="small"><b>Comment:</b> ${d.comment ?? ""}</div>
+        <div class="small"><b>Path:</b> ${d.filePath ?? ""}</div>
         <div class="small"><b>ID:</b> ${d.id ?? ""}</div>
         <button type="button" data-id="${d.id}">Delete</button>
       `;
