@@ -1,8 +1,8 @@
 // Logic App endpoints (all provided)
 const CIA_URL = "https://prod-02.italynorth.logic.azure.com/workflows/438f49f8253b4c6899482f6ac1bfa072/triggers/When_an_HTTP_request_is_received/paths/invoke/rest/v1/assets?api-version=2016-10-01&sp=%2Ftriggers%2FWhen_an_HTTP_request_is_received%2Frun&sv=1.0&sig=eqZYTEoJrYYYR7-JwgT12Kq9O-So9-KbilcscE3qL9E";
 const CIA_IMAGES_URL = "https://prod-12.italynorth.logic.azure.com:443/workflows/2200a2abcb2d4b72916e5903b8009c15/triggers/When_an_HTTP_request_is_received/paths/invoke?api-version=2016-10-01&sp=%2Ftriggers%2FWhen_an_HTTP_request_is_received%2Frun&sv=1.0&sig=ogcc4lng3zhf4SOs6dVE15c9o3fXcPkjNC6q0MZrFR8";
-// Delete endpoint (DELETE /rest/v1/assets/{id})
-const DIA_URL = "https://prod-06.italynorth.logic.azure.com/workflows/66f84f42ed204cad8460e53e61c91a2b/triggers/When_an_HTTP_request_is_received/paths/invoke/rest/v1/assets/{id}?api-version=2016-10-01&sp=%2Ftriggers%2FWhen_an_HTTP_request_is_received%2Frun&sv=1.0&sig=6kY1LTq8-39mk8ePr1LddlF6qcnv1gxarAVYet0GNRM";
+// Delete endpoint (DELETE /rest/assets/{id})
+const DIA_URL = "https://prod-06.italynorth.logic.azure.com/workflows/66f84f42ed204cad8460e53e61c91a2b/triggers/When_an_HTTP_request_is_received/paths/invoke/rest/assets/{id}?api-version=2016-10-01&sp=%2Ftriggers%2FWhen_an_HTTP_request_is_received%2Frun&sv=1.0&sig=6kY1LTq8-39mk8ePr1LddlF6qcnv1gxarAVYet0GNRM";
 const RAA_URL = "https://prod-03.italynorth.logic.azure.com/workflows/60d0ac063b2b4b719b11d3682a9a9a0c/triggers/When_an_HTTP_request_is_received/paths/invoke/rest/v1/assets?api-version=2016-10-01&sp=%2Ftriggers%2FWhen_an_HTTP_request_is_received%2Frun&sv=1.0&sig=kkJoDMv_3TUZ3YRMdFMxZ-i0FZTsxcRt3GvbPAoDNEs";
 const RIA_URL = "https://prod-00.italynorth.logic.azure.com/workflows/d0af0d70328d47a8ad27f7c25e035de9/triggers/When_an_HTTP_request_is_received/paths/invoke/rests/assets/{id}?api-version=2016-10-01&sp=%2Ftriggers%2FWhen_an_HTTP_request_is_received%2Frun&sv=1.0&sig=xrq9bm3gWPRFCBQJ0ete6qnfTf9KK5PySeme7YzwprE";
 const RIA_IMAGES_URL = "https://prod-06.italynorth.logic.azure.com:443/workflows/7699903ea01b48f3adb9fc50033dd1c8/triggers/When_an_HTTP_request_is_received/paths/invoke?api-version=2016-10-01&sp=%2Ftriggers%2FWhen_an_HTTP_request_is_received%2Frun&sv=1.0&sig=CUwD8epstITJInT-mbEJ1RnOeX5_Cz-vfciUlDbb46E";
@@ -72,36 +72,32 @@ async function fetchAllAssets() {
   }));
 }
 
-async function deleteAsset({ id, restaurantId }) {
-  const targetId = restaurantId || id;
-  const url = DELETE_URL.replace("{id}", encodeURIComponent(targetId));
-
-  console.log("DELETE request", { method: "DELETE", url, targetId });
-
+async function deleteRestaurant(restaurantId) {
+  const id = restaurantId;
+  if (!id) throw new Error("Missing restaurantId for delete");
+  const url = DELETE_URL.replace("{id}", encodeURIComponent(id));
+  console.log("DELETE request", { method: "DELETE", url, restaurantId: id });
   const res = await fetch(url, {
     method: "DELETE",
-    headers: {
-      Accept: "application/json"
-    }
+    headers: { Accept: "application/json" }
   });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Delete failed: ${res.status} ${text}`);
-  }
+  const text = await res.text();
+  if (!res.ok) throw new Error(`Delete failed: ${res.status} ${text}`);
+  return text;
 }
 
-async function updateAsset(record, updates) {
-  const restaurantId = record.restaurantId || record.restaurantID;
-  if (!restaurantId) throw new Error("Missing restaurantId for update");
+async function updateRestaurant(restaurantId, updates) {
+  const id = restaurantId;
+  if (!id) throw new Error("Missing restaurantId for update");
 
-  const url = UIA_URL.replace("{id}", encodeURIComponent(restaurantId));
+  const url = UIA_URL.replace("{id}", encodeURIComponent(id));
   const payload = {
     RestaurantName: updates.RestaurantName,
     Address: updates.Address,
     City: updates.City
   };
 
-  console.log("UPDATE request", { url, body: payload });
+  console.log("UPDATE request", { method: "PUT", url, restaurantId: id, body: payload });
 
   const res = await fetch(url, {
     method: "PUT",
@@ -115,9 +111,7 @@ async function updateAsset(record, updates) {
   const text = await res.text();
   console.log("UPDATE response", { status: res.status, body: text });
 
-  if (!res.ok) {
-    throw new Error(`Update failed: ${res.status} ${text}`);
-  }
+  if (!res.ok) throw new Error(`Update failed: ${res.status} ${text}`);
 
   try {
     return JSON.parse(text);
@@ -148,7 +142,7 @@ async function renderAssets() {
       const div = document.createElement("div");
       div.className = "item";
 
-      const restaurantId = toStr(d.restaurantId ?? d.RestaurantId ?? d.restaurantID ?? d.id ?? d.ID);
+      const restaurantId = toStr(d.RestaurantId ?? d.restaurantId ?? d.restaurantID ?? d.id ?? d.ID);
       const restaurantName = toStr(d.restaurantName ?? d.RestaurantName);
       const address = toStr(d.address ?? d.Address);
       const city = toStr(d.city ?? d.City);
@@ -157,7 +151,7 @@ async function renderAssets() {
       const pathVal = toStr(d.path ?? d.filePath ?? d.fileLocator);
       const idVal = toStr(d.id ?? d.ID);
 
-      div.dataset.restaurantId = restaurantId;
+      div.dataset.restaurantid = restaurantId;
 
       const img = document.createElement("img");
       img.src = imgUrl;
@@ -168,13 +162,13 @@ async function renderAssets() {
       const deleteBtn = document.createElement("button");
       deleteBtn.type = "button";
       deleteBtn.className = "delete-btn";
-      deleteBtn.dataset.restaurantId = restaurantId;
+      deleteBtn.dataset.restaurantid = restaurantId;
       deleteBtn.textContent = "Delete";
 
       const editBtn = document.createElement("button");
       editBtn.type = "button";
       editBtn.className = "edit-btn";
-      editBtn.dataset.restaurantId = restaurantId;
+      editBtn.dataset.restaurantid = restaurantId;
       editBtn.dataset.name = restaurantName;
       editBtn.dataset.address = address;
       editBtn.dataset.city = city;
@@ -204,7 +198,7 @@ $("gallery").addEventListener("click", async (e) => {
   if (e.target.tagName !== "BUTTON") return;
 
   const card = e.target.closest(".item");
-  const restaurantId = e.target.dataset.restaurantId || card?.dataset.restaurantId;
+  const restaurantId = e.target.dataset.restaurantid || card?.dataset.restaurantid;
 
   if (e.target.classList.contains("edit-btn")) {
     if (!restaurantId) {
@@ -225,7 +219,7 @@ $("gallery").addEventListener("click", async (e) => {
     if (newCity === null) return;
 
     try {
-      await updateAsset({ restaurantId }, {
+      await updateRestaurant(restaurantId, {
         RestaurantName: newName,
         Address: newAddress,
         City: newCity
@@ -246,7 +240,7 @@ $("gallery").addEventListener("click", async (e) => {
     if (!confirm("Delete this image?")) return;
     try {
       console.log("Delete click restaurantId", restaurantId);
-      await deleteAsset({ restaurantId });
+      await deleteRestaurant(restaurantId);
       card.remove();
     } catch (err) {
       alert(`Delete failed: ${err.message}`);
