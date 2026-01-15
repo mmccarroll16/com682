@@ -12,8 +12,8 @@ const LIST_ASSETS_URL = RIA_IMAGES_URL; // returns image records with base64 fie
 const UPLOAD_URL = CIA_IMAGES_URL; // upload metadata + image
 const DELETE_URL = DIA_URL;
 
-// Set the blob base URL (include container). Adjust if your container name changes.
-const IMAGE_BASE_URL = "https://localbitestorageaccountz38.blob.core.windows.net/localbitesimages";
+// Set the blob base URL (account-level; path includes container)
+const IMAGE_BASE_URL = "https://localbitestorageaccountz38.blob.core.windows.net";
 
 // If Logic App stores a media.url, set true to render from it (not the case with RIA_IMAGES)
 const USE_MEDIA_URL = false;
@@ -74,11 +74,18 @@ async function renderAssets() {
       const path = d.filePath || d.fileLocator || "";
       const file = d.fileName || "";
       const combinedPath = (() => {
-        const trimmed = path.startsWith("/") ? path.slice(1) : path;
-        if (file && trimmed && !trimmed.endsWith(file)) {
-          return `${trimmed}/${file}`;
+        let trimmed = path.startsWith("/") ? path.slice(1) : path;
+        // Avoid double container prefix if the path already includes localbitesimages
+        if (trimmed.startsWith("localbitesimages/")) {
+          trimmed = trimmed.replace(/^localbitesimages\//, "");
         }
-        return trimmed || file || "";
+        if (file && trimmed && !trimmed.endsWith(file)) {
+          return `localbitesimages/${trimmed}/${file}`;
+        }
+        if (file && !trimmed) {
+          return `localbitesimages/${file}`;
+        }
+        return trimmed || "";
       })();
       const urlFromPath =
         IMAGE_BASE_URL && combinedPath
@@ -89,6 +96,7 @@ async function renderAssets() {
       div.className = "item";
       div.innerHTML = `
         <img src="${imgUrl}" alt="${d.fileName ?? "image"}" />
+        <div class="small"><b>File:</b> ${d.fileName ?? ""}</div>
         <div class="small"><b>Restaurant:</b> ${d.restaurantId ?? d.restaurantID ?? ""}</div>
         <div class="small"><b>User:</b> ${d.userName ?? ""} (${d.userID ?? ""})</div>
         <div class="small"><b>Rating:</b> ${d.rating ?? ""}</div>
