@@ -1,44 +1,38 @@
-name: Deploy frontend to Azure Storage static site
+name: Deploy to Azure Storage Static Website
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
   workflow_dispatch:
-
-env:
-  AZURE_STORAGE_ACCOUNT: "<your-storage-account-name>"
 
 permissions:
   contents: read
-  id-token: write
+
+env:
+  AZURE_STORAGE_CONNECTION_STRING: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Azure login
-        uses: azure/login@v2
+      - name: Enable static website (idempotent)
+        uses: Azure/cli@v2
         with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
-
-      - name: Enable static website (if not already)
-        run: |
-          az storage blob service-properties update \
-            --account-name "$AZURE_STORAGE_ACCOUNT" \
-            --auth-mode login \
-            --static-website \
-            --index-document index.html \
-            --404-document index.html
+          inlineScript: |
+            az storage blob service-properties update \
+              --connection-string "$AZURE_STORAGE_CONNECTION_STRING" \
+              --static-website \
+              --index-document index.html \
+              --404-document index.html
 
       - name: Upload frontend to $web
-        run: |
-          az storage blob upload-batch \
-            --account-name "$AZURE_STORAGE_ACCOUNT" \
-            --auth-mode login \
-            --destination '$web' \
-            --source frontend \
-            --overwrite
+        uses: Azure/cli@v2
+        with:
+          inlineScript: |
+            az storage blob upload-batch \
+              --connection-string "$AZURE_STORAGE_CONNECTION_STRING" \
+              --destination '$web' \
+              --source frontend \
+              --overwrite
