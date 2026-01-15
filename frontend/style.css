@@ -1,0 +1,9 @@
+body { font-family: Arial, sans-serif; margin: 24px; }
+.card { border: 1px solid #ddd; border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+label { display:block; margin-top: 10px; }
+input, button { padding: 8px; margin-top: 6px; width: 320px; max-width: 100%; }
+button { width: auto; cursor:pointer; }
+.gallery { display:flex; gap: 12px; flex-wrap: wrap; margin-top: 12px; }
+.item { border: 1px solid #eee; border-radius: 10px; padding: 10px; width: 260px; }
+.item img { width: 100%; border-radius: 8px; }
+.small { color:#555; font-size: 0.9em; }
