@@ -13,9 +13,8 @@ const LIST_ASSETS_URL = RIA_IMAGES_URL; // returns image records with base64 fie
 const UPLOAD_URL = CIA_IMAGES_URL; // upload metadata + image
 const DELETE_URL = DIA_URL;
 
-// If your images live in blob storage, set the base URL to build image links, e.g.:
-// const IMAGE_BASE_URL = "https://<storage-account>.blob.core.windows.net";
-const IMAGE_BASE_URL = "";
+// Set the blob base URL (account-level; path includes container)
+const IMAGE_BASE_URL = "https://localbitestorageaccountz38.blob.core.windows.net";
 
 // If Logic App stores a media.url, set true to render from it (not the case with RIA_IMAGES)
 const USE_MEDIA_URL = false;
@@ -46,10 +45,23 @@ async function fetchAllAssets() {
   }));
 }
 
-async function deleteAsset(id) {
+async function deleteAsset({ id, partitionKey, filePath, fileLocator }) {
   const url = DELETE_URL.replace("{id}", encodeURIComponent(id));
-  const res = await fetch(url, { method: "DELETE" });
-  if (!res.ok) throw new Error(`Delete failed: ${res.status}`);
+  const body = {
+    id,
+    partitionKey: partitionKey || fileLocator || filePath || id,
+    filePath,
+    fileLocator
+  };
+  const res = await fetch(url, {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body)
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Delete failed: ${res.status} ${text}`);
+  }
 }
 
 async function renderAssets() {
@@ -66,19 +78,37 @@ async function renderAssets() {
 
     for (const d of docs) {
       const urlFromMedia = USE_MEDIA_URL ? d?.media?.url : null;
-      const urlFromPath = IMAGE_BASE_URL && d.filePath ? `${IMAGE_BASE_URL}${d.filePath}` : null;
+      const path = d.filePath || d.fileLocator || "";
+      const file = d.fileName || "";
+      const combinedPath = (() => {
+        let trimmed = path.startsWith("/") ? path.slice(1) : path;
+        if (trimmed.startsWith("localbitesimages/")) {
+          trimmed = trimmed.replace(/^localbitesimages\//, "");
+        }
+        if (file && trimmed && !trimmed.endsWith(file)) {
+          return `localbitesimages/${trimmed}/${file}`;
+        }
+        if (file && !trimmed) {
+          return `localbitesimages/${file}`;
+        }
+        return trimmed || "";
+      })();
+      const urlFromPath =
+        IMAGE_BASE_URL && combinedPath ? `${IMAGE_BASE_URL}/${combinedPath}` : null;
       const imgUrl = urlFromMedia ?? urlFromPath ?? "";
+      const pkCandidate = d.fileLocator || d.filePath || d.id;
       const div = document.createElement("div");
       div.className = "item";
       div.innerHTML = `
         <img src="${imgUrl}" alt="${d.fileName ?? "image"}" />
+        <div class="small"><b>File:</b> ${d.fileName ?? ""}</div>
         <div class="small"><b>Restaurant:</b> ${d.restaurantId ?? d.restaurantID ?? ""}</div>
         <div class="small"><b>User:</b> ${d.userName ?? ""} (${d.userID ?? ""})</div>
         <div class="small"><b>Rating:</b> ${d.rating ?? ""}</div>
         <div class="small"><b>Comment:</b> ${d.comment ?? ""}</div>
-        <div class="small"><b>Path:</b> ${d.filePath ?? ""}</div>
+        <div class="small"><b>Path:</b> ${d.filePath ?? d.fileLocator ?? ""}</div>
         <div class="small"><b>ID:</b> ${d.id ?? ""}</div>
-        <button type="button" data-id="${d.id}">Delete</button>
+        <button type="button" data-id="${d.id}" data-pk="${pkCandidate ?? ""}" data-filepath="${d.filePath ?? ""}" data-filelocator="${d.fileLocator ?? ""}">Delete</button>
       `;
       $("gallery").appendChild(div);
     }
@@ -92,9 +122,12 @@ $("refreshBtn").addEventListener("click", renderAssets);
 $("gallery").addEventListener("click", async (e) => {
   if (e.target.tagName === "BUTTON" && e.target.dataset.id) {
     const id = e.target.dataset.id;
+    const partitionKey = e.target.dataset.pk;
+    const filePath = e.target.dataset.filepath;
+    const fileLocator = e.target.dataset.filelocator;
     if (!confirm("Delete this image?")) return;
     try {
-      await deleteAsset(id);
+      await deleteAsset({ id, partitionKey, filePath, fileLocator });
       await renderAssets();
     } catch (err) {
       alert(`Delete failed: ${err.message}`);
