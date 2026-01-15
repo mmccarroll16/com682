@@ -5,80 +5,72 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>LocalBites Media</title>
   <link rel="stylesheet" href="style.css" />
+
+  <!-- ✅ Azure Application Insights (Advanced Feature) -->
+  <script>
+    (function () {
+      var script = document.createElement("script");
+      script.src = "https://js.monitor.azure.com/scripts/b/ai.2.min.js";
+      script.async = true;
+
+      script.onload = function () {
+        window.appInsights = new Microsoft.ApplicationInsights.ApplicationInsights({
+          config: {
+            connectionString:
+              "InstrumentationKey=8de29fe0-4fec-45a3-975a-201749fdfc85;IngestionEndpoint=https://italynorth-0.in.applicationinsights.azure.com/;LiveEndpoint=https://italynorth.livediagnostics.monitor.azure.com/;ApplicationId=6e26f38b-1136-4ace-96b9-6085118c994f",
+            enableAutoRouteTracking: true,
+            disableAjaxTracking: false,
+            disableFetchTracking: false
+          }
+        });
+
+        window.appInsights.loadAppInsights();
+        window.appInsights.trackPageView();
+      };
+
+      document.head.appendChild(script);
+    })();
+  </script>
 </head>
+
 <body>
   <h1>LocalBites Upload & Reviews</h1>
 
-  <section class="card">
-    <h2>Create restaurant (CRUD)</h2>
-    <form id="createRestaurantForm">
-      <label for="newName">Restaurant Name</label>
-      <input id="newName" required />
-
-      <label for="newAddress">Address</label>
-      <input id="newAddress" required />
-
-      <label for="newCity">City</label>
-      <input id="newCity" required />
-
-      <button type="submit">Create</button>
-      <p id="createStatus" class="small"></p>
-    </form>
-  </section>
-
-  <!-- ✅ GLOBAL TEXT-ONLY REVIEW FORM (back at the top) -->
-  <section class="card">
-    <h2>Add review (text-only)</h2>
-    <form id="textReviewForm">
-      <label for="reviewRestaurantId">Restaurant ID</label>
-      <input id="reviewRestaurantId" required />
-
-      <label for="reviewUserName">Your name</label>
-      <input id="reviewUserName" required />
-
-      <label for="reviewRating">Rating (1-5)</label>
-      <input id="reviewRating" type="number" min="1" max="5" required />
-
-      <label for="reviewComment">Comment</label>
-      <input id="reviewComment" required />
-
-      <button type="submit">Add review</button>
-      <p id="textReviewStatus" class="small"></p>
-    </form>
-  </section>
-
+  <!-- TOP BOX: Upload review + image -->
   <section class="card">
     <h2>Upload review + image</h2>
 
     <form id="uploadForm">
       <label for="restaurantId">Restaurant ID</label>
-      <input id="restaurantId" required />
+      <input id="restaurantId" name="restaurantId" required />
 
       <label for="userID">User ID</label>
-      <input id="userID" required />
+      <input id="userID" name="userID" required />
 
       <label for="userName">User Name</label>
-      <input id="userName" required />
+      <input id="userName" name="userName" required />
 
       <label for="rating">Rating (1-5)</label>
-      <input id="rating" type="number" min="1" max="5" required />
+      <input id="rating" name="rating" type="number" min="1" max="5" required />
 
       <label for="comment">Comment</label>
-      <input id="comment" required />
+      <input id="comment" name="comment" required />
 
-      <label for="file">Choose Image</label>
-      <input id="file" type="file" accept="image/*" required />
+      <label for="fileInput">Choose Image</label>
+      <input id="fileInput" name="file" type="file" accept="image/*" required />
 
       <button type="submit">Upload</button>
-      <p id="status" class="small"></p>
+      <p id="uploadStatus" class="small"></p>
     </form>
   </section>
 
+  <!-- TOP BOX: Restaurants -->
   <section class="card">
     <h2>Restaurants</h2>
-    <button id="refreshBtn" type="button">Load all</button>
-    <p id="loadStatus" class="small"></p>
-    <div id="gallery" class="gallery"></div>
+    <button id="loadRestaurantsBtn" type="button">Load all</button>
+    <p id="status" class="small"></p>
+
+    <div id="restaurantsList"></div>
   </section>
 
   <script src="app.js"></script>
