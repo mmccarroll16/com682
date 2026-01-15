@@ -1,231 +1,263 @@
-// app.js - vanilla JS, static frontend for LocalBites restaurants + review upload
-// Expects existing HTML elements: #loadRestaurantsBtn, #restaurantsList, #reviewForm
-// and inputs: #restaurantIdInput, #userIdInput, #userNameInput, #ratingInput, #commentInput, #fileInput
+// app.js - FIXED (no duplicates, uses your existing HTML only)
 
-// --- API endpoints (provided) ---
+// --- API endpoints ---
 const API = {
-  READ_ALL: "https://prod-03.italynorth.logic.azure.com/workflows/60d0ac063b2b4b719b11d3682a9a9a0c/triggers/When_an_HTTP_request_is_received/paths/invoke/rest/v1/assets?api-version=2016-10-01&sp=%2Ftriggers%2FWhen_an_HTTP_request_is_received%2Frun&sv=1.0&sig=kkJoDMv_3TUZ3YRMdFMxZ-i0FZTsxcRt3GvbPAoDNEs",
-  UPDATE_TEMPLATE: "https://prod-09.italynorth.logic.azure.com/workflows/33da03811d18412db6e949fd7859b51b/triggers/When_an_HTTP_request_is_received/paths/invoke/rest/assets/{id}?api-version=2016-10-01&sp=%2Ftriggers%2FWhen_an_HTTP_request_is_received%2Frun&sv=1.0&sig=aQ5q3EGKjL4wdj_SHE4KVEQl98wPXpOJGP1DwjF8D0c",
-  DELETE_TEMPLATE: "https://prod-06.italynorth.logic.azure.com/workflows/66f84f42ed204cad8460e53e61c91a2b/triggers/When_an_HTTP_request_is_received/paths/invoke/rest/v1/assests/{id}?api-version=2016-10-01&sp=%2Ftriggers%2FWhen_an_HTTP_request_is_received%2Frun&sv=1.0&sig=6kY1LTq8-39mk8ePr1LddlF6qcnv1gxarAVYet0GNRM",
-  UPLOAD: "https://prod-12.italynorth.logic.azure.com:443/workflows/2200a2abcb2d4b72916e5903b8009c15/triggers/When_an_HTTP_request_is_received/paths/invoke?api-version=2016-10-01&sp=%2Ftriggers%2FWhen_an_HTTP_request_is_received%2Frun&sv=1.0&sig=ogcc4lng3zhf4SOs6dVE15c9o3fXcPkjNC6q0MZrFR8"
+  READ_ALL:
+    "https://prod-03.italynorth.logic.azure.com/workflows/60d0ac063b2b4b719b11d3682a9a9a0c/triggers/When_an_HTTP_request_is_received/paths/invoke/rest/v1/assets?api-version=2016-10-01&sp=%2Ftriggers%2FWhen_an_HTTP_request_is_received%2Frun&sv=1.0&sig=kkJoDMv_3TUZ3YRMdFMxZ-i0FZTsxcRt3GvbPAoDNEs",
+
+  UPDATE_TEMPLATE:
+    "https://prod-09.italynorth.logic.azure.com/workflows/33da03811d18412db6e949fd7859b51b/triggers/When_an_HTTP_request_is_received/paths/invoke/rest/assets/{id}?api-version=2016-10-01&sp=%2Ftriggers%2FWhen_an_HTTP_request_is_received%2Frun&sv=1.0&sig=aQ5q3EGKjL4wdj_SHE4KVEQl98wPXpOJGP1DwjF8D0c",
+
+  DELETE_TEMPLATE:
+    "https://prod-06.italynorth.logic.azure.com/workflows/66f84f42ed204cad8460e53e61c91a2b/triggers/When_an_HTTP_request_is_received/paths/invoke/rest/v1/assests/{id}?api-version=2016-10-01&sp=%2Ftriggers%2FWhen_an_HTTP_request_is_received%2Frun&sv=1.0&sig=6kY1LTq8-39mk8ePr1LddlF6qcnv1gxarAVYet0GNRM",
+
+  UPLOAD:
+    "https://prod-12.italynorth.logic.azure.com:443/workflows/2200a2abcb2d4b72916e5903b8009c15/triggers/When_an_HTTP_request_is_received/paths/invoke?api-version=2016-10-01&sp=%2Ftriggers%2FWhen_an_HTTP_request_is_received%2Frun&sv=1.0&sig=ogcc4lng3zhf4SOs6dVE15c9o3fXcPkjNC6q0MZrFR8",
 };
 
-// --- DOM references (create if missing) ---
-const loadBtn = document.querySelector("#loadRestaurantsBtn") || createButton("loadRestaurantsBtn", "Load all");
-const listEl = document.querySelector("#restaurantsList") || createContainer("restaurantsList");
-const reviewForm = document.querySelector("#reviewForm") || createReviewForm();
+// --- DOM (use existing HTML; do NOT create duplicates) ---
+const uploadForm = document.getElementById("uploadForm");
+const refreshBtn = document.getElementById("refreshBtn");
+const gallery = document.getElementById("gallery");
+const statusEl = document.getElementById("status");
+const loadStatusEl = document.getElementById("loadStatus");
 
-function createContainer(id) {
-  const div = document.createElement("div");
-  div.id = id;
-  document.body.appendChild(div);
-  return div;
-}
-function createButton(id, text) {
-  const btn = document.createElement("button");
-  btn.id = id;
-  btn.textContent = text;
-  document.body.appendChild(btn);
-  return btn;
-}
-function createReviewForm() {
-  const form = document.createElement("form");
-  form.id = "reviewForm";
-  form.innerHTML = `
-    <h3>Upload review + image</h3>
-    <label>Restaurant ID <input id="restaurantIdInput" name="restaurantId" required></label>
-    <label>User ID <input id="userIdInput" name="userID" required></label>
-    <label>User Name <input id="userNameInput" name="userName" required></label>
-    <label>Rating (1-5) <input id="ratingInput" name="rating" type="number" min="1" max="5" required></label>
-    <label>Comment <input id="commentInput" name="comment" required></label>
-    <label>Filename (optional) <input id="fileNameInput" name="Filename"></label>
-    <label>Choose Image <input id="fileInput" name="file" type="file" accept="image/*" required></label>
-    <button type="submit">Upload</button>
-    <p id="status"></p>
-  `;
-  document.body.appendChild(form);
-  return form;
+if (!uploadForm || !refreshBtn || !gallery || !statusEl || !loadStatusEl) {
+  console.error("Missing required HTML elements. Check IDs in index.html.");
 }
 
-// --- Helpers ---
-const safe = (v) => {
-  if (v === undefined || v === null) return "";
-  return typeof v === "object" ? JSON.stringify(v) : String(v);
-};
-const decodeMaybeBase64Obj = (v) => {
-  if (v && typeof v === "object" && "$content" in v) {
-    try { return atob(v.$content); } catch { return v.$content; }
-  }
-  return v;
-};
+// --- helpers ---
+const safeStr = (v) => (v === null || v === undefined ? "" : String(v));
+
 const buildUrlWithId = (template, id) =>
-  template.includes("{id}")
-    ? template.replace("{id}", encodeURIComponent(id))
-    : (() => {
-        const [base, qs] = template.split("?");
-        const cleaned = base.replace(/\/$/, "");
-        return `${cleaned}/${encodeURIComponent(id)}${qs ? `?${qs}` : ""}`;
-      })();
+  template.replace("{id}", encodeURIComponent(String(id)));
+
+function setLoadStatus(msg) {
+  loadStatusEl.textContent = msg || "";
+}
+function setUploadStatus(msg) {
+  statusEl.textContent = msg || "";
+}
+
+async function readTextOrJson(res) {
+  const text = await res.text();
+  try {
+    return { text, json: JSON.parse(text) };
+  } catch {
+    return { text, json: null };
+  }
+}
 
 // --- API calls ---
-async function fetchAll() {
+async function fetchAllRestaurants() {
   console.log("GET", API.READ_ALL);
   const res = await fetch(API.READ_ALL, { method: "GET" });
-  const text = await res.text();
-  let data;
-  try { data = JSON.parse(text); } catch { data = []; }
+  const { text, json } = await readTextOrJson(res);
   console.log("GET response", res.status, text);
+
   if (!res.ok) throw new Error(`GET failed: ${res.status} ${text}`);
-  return Array.isArray(data) ? data : (data.Documents ?? data.documents ?? []);
+
+  // RAA returns an array of restaurants
+  if (Array.isArray(json)) return json;
+  return [];
 }
 
 async function updateRestaurant(id, payload) {
   const url = buildUrlWithId(API.UPDATE_TEMPLATE, id);
-  console.log("PUT", { url, id, body: payload });
+  console.log("PUT", url, payload);
+
   const res = await fetch(url, {
     method: "PUT",
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify(payload)
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify(payload),
   });
-  const text = await res.text();
+
+  const { text } = await readTextOrJson(res);
   console.log("PUT response", res.status, text);
+
   if (!res.ok) throw new Error(`Update failed: ${res.status} ${text}`);
-  return text;
 }
 
 async function deleteRestaurant(id) {
   const url = buildUrlWithId(API.DELETE_TEMPLATE, id);
-  console.log("DELETE", { url, id });
+  console.log("DELETE", url);
+
   const res = await fetch(url, { method: "DELETE" });
-  const text = await res.text();
+  const { text } = await readTextOrJson(res);
   console.log("DELETE response", res.status, text);
+
   if (!res.ok) throw new Error(`Delete failed: ${res.status} ${text}`);
-  return text;
 }
 
-async function uploadReview(formEl) {
-  const fd = new FormData(formEl);
-  const fileInput = formEl.querySelector("#fileInput");
-  if (!fileInput.files.length) throw new Error("File is required");
-  const fileNameInput = formEl.querySelector("#fileNameInput");
-  if (!fileNameInput.value) fd.set("Filename", fileInput.files[0].name);
-  fd.set("file", fileInput.files[0]);
+async function uploadReviewWithImage() {
+  // IMPORTANT: your inputs have no "name" attributes, so FormData(form) is unreliable.
+  // Build FormData manually with the exact key names Logic Apps expects.
+  const restaurantId = document.getElementById("restaurantId").value.trim();
+  const userID = document.getElementById("userID").value.trim();
+  const userName = document.getElementById("userName").value.trim();
+  const rating = document.getElementById("rating").value.trim();
+  const comment = document.getElementById("comment").value.trim();
+  const fileInput = document.getElementById("file");
+  const file = fileInput.files && fileInput.files[0];
+
+  if (!restaurantId) throw new Error("Restaurant ID is required");
+  if (!userID) throw new Error("User ID is required");
+  if (!userName) throw new Error("User Name is required");
+  if (!rating) throw new Error("Rating is required");
+  if (!comment) throw new Error("Comment is required");
+  if (!file) throw new Error("Image file is required");
+
+  const fd = new FormData();
+  fd.append("Filename", file.name);
+  fd.append("userID", userID);
+  fd.append("userName", userName);
+  fd.append("restaurantId", restaurantId);
+  fd.append("rating", rating);
+  fd.append("comment", comment);
+  fd.append("file", file);
+
   console.log("POST upload", API.UPLOAD);
   const res = await fetch(API.UPLOAD, { method: "POST", body: fd });
-  const text = await res.text();
+  const { text } = await readTextOrJson(res);
   console.log("POST response", res.status, text);
+
   if (!res.ok) throw new Error(`Upload failed: ${res.status} ${text}`);
-  return text;
 }
 
-// --- Rendering ---
-function renderList(items) {
-  listEl.innerHTML = "";
-  items.forEach((item) => listEl.appendChild(createCard(item)));
+// --- rendering ---
+function renderRestaurants(restaurants) {
+  // Clear FIRST to prevent duplicates
+  gallery.innerHTML = "";
+
+  restaurants.forEach((r) => {
+    // match Postman keys: restaurantID, RestaurantName, Address, City
+    const id = r.restaurantID;
+    const name = safeStr(r.RestaurantName);
+    const address = safeStr(r.Address);
+    const city = safeStr(r.City);
+
+    const card = document.createElement("div");
+    card.className = "item";
+    card.dataset.restaurantId = id;
+
+    // No blob/image loading here (restaurants don’t have image urls)
+    card.innerHTML = `
+      <div><b>restaurantID:</b> ${id}</div>
+      <div><b>RestaurantName:</b> <span class="view-name">${name}</span></div>
+      <div><b>Address:</b> <span class="view-address">${address}</span></div>
+      <div><b>City:</b> <span class="view-city">${city}</span></div>
+
+      <div class="actions">
+        <button type="button" class="edit-btn">Edit</button>
+        <button type="button" class="delete-btn">Delete</button>
+      </div>
+
+      <div class="edit-form" style="display:none; margin-top:8px;">
+        <label>Name <input class="edit-name" type="text" value="${name}"></label><br/>
+        <label>Address <input class="edit-address" type="text" value="${address}"></label><br/>
+        <label>City <input class="edit-city" type="text" value="${city}"></label><br/>
+        <button type="button" class="save-btn">Save</button>
+        <button type="button" class="cancel-btn">Cancel</button>
+      </div>
+    `;
+
+    gallery.appendChild(card);
+  });
 }
 
-function createCard(item) {
-  const card = document.createElement("div");
-  card.className = "item";
+// --- event delegation for edit/delete/save/cancel ---
+gallery.addEventListener("click", async (e) => {
+  const btn = e.target.closest("button");
+  if (!btn) return;
 
-  // Use restaurantID (capital D) as primary ID
-  const restaurantId = safe(item.restaurantID ?? item.restaurantId ?? item.RestaurantID ?? item.RestaurantId ?? item.id ?? item.Id);
+  const card = e.target.closest(".item");
+  if (!card) return;
 
-  const name = safe(decodeMaybeBase64Obj(item.RestaurantName ?? item.restaurantName));
-  const address = safe(decodeMaybeBase64Obj(item.Address ?? item.address));
-  const city = safe(decodeMaybeBase64Obj(item.City ?? item.city));
+  const restaurantId = card.dataset.restaurantId;
 
-  card.dataset.restaurantId = restaurantId;
-
-  card.innerHTML = `
-    <div><b>RestaurantId:</b> ${restaurantId}</div>
-    <div><b>RestaurantName:</b> ${name}</div>
-    <div><b>Address:</b> ${address}</div>
-    <div><b>City:</b> ${city}</div>
-    <div class="actions">
-      <button type="button" class="edit-btn">Edit</button>
-      <button type="button" class="delete-btn">Delete</button>
-    </div>
-    <div class="edit-form" style="display:none;">
-      <label>Name <input type="text" name="RestaurantName" value="${name}"></label>
-      <label>Address <input type="text" name="Address" value="${address}"></label>
-      <label>City <input type="text" name="City" value="${city}"></label>
-      <button type="button" class="save-btn">Save</button>
-      <button type="button" class="cancel-btn">Cancel</button>
-    </div>
-  `;
-
-  const editBtn = card.querySelector(".edit-btn");
-  const deleteBtn = card.querySelector(".delete-btn");
-  const editForm = card.querySelector(".edit-form");
   const actions = card.querySelector(".actions");
+  const editForm = card.querySelector(".edit-form");
 
-  editBtn.addEventListener("click", () => {
-    editForm.style.display = "";
-    actions.style.display = "none";
-  });
-  editForm.querySelector(".cancel-btn").addEventListener("click", () => {
-    editForm.style.display = "none";
-    actions.style.display = "";
-  });
-  editForm.querySelector(".save-btn").addEventListener("click", async () => {
-    const payload = {
-      RestaurantName: editForm.querySelector('input[name="RestaurantName"]').value,
-      Address: editForm.querySelector('input[name="Address"]').value,
-      City: editForm.querySelector('input[name="City"]').value
-    };
-    try {
-      await updateRestaurant(restaurantId, payload);
-      await loadAndRender();
-    } catch (err) {
-      alert(err.message);
-    }
-  });
-
-  deleteBtn.addEventListener("click", async () => {
-    if (!restaurantId) {
-      alert("Missing restaurantId");
-      console.error("Missing restaurantId", { item });
+  try {
+    if (btn.classList.contains("edit-btn")) {
+      editForm.style.display = "";
+      actions.style.display = "none";
       return;
     }
-    if (!confirm("Delete this restaurant?")) return;
-    try {
-      await deleteRestaurant(restaurantId);
-      card.remove();
-    } catch (err) {
-      alert(err.message);
+
+    if (btn.classList.contains("cancel-btn")) {
+      editForm.style.display = "none";
+      actions.style.display = "";
+      return;
     }
-  });
 
-  return card;
-}
+    if (btn.classList.contains("save-btn")) {
+      if (!restaurantId) throw new Error("Missing restaurantID on card");
 
-// --- Event handlers ---
-async function loadAndRender() {
-  try {
-    const items = await fetchAll();
-    renderList(items);
+      const payload = {
+        RestaurantName: card.querySelector(".edit-name").value,
+        Address: card.querySelector(".edit-address").value,
+        City: card.querySelector(".edit-city").value,
+      };
+
+      await updateRestaurant(restaurantId, payload);
+      setLoadStatus("Updated successfully ✅");
+      await loadRestaurants();
+      return;
+    }
+
+    if (btn.classList.contains("delete-btn")) {
+      if (!restaurantId) throw new Error("Missing restaurantID on card");
+      if (!confirm(`Delete restaurant ${restaurantId}?`)) return;
+
+      await deleteRestaurant(restaurantId);
+      setLoadStatus("Deleted successfully ✅");
+      await loadRestaurants();
+      return;
+    }
   } catch (err) {
+    alert(err.message);
+    console.error(err);
+  }
+});
+
+// --- main actions ---
+async function loadRestaurants() {
+  try {
+    setLoadStatus("Loading restaurants...");
+    const restaurants = await fetchAllRestaurants();
+    renderRestaurants(restaurants);
+    setLoadStatus(`Loaded ${restaurants.length} restaurants ✅`);
+  } catch (err) {
+    setLoadStatus(`Load failed: ${err.message}`);
+    console.error(err);
     alert(err.message);
   }
 }
 
-loadBtn.addEventListener("click", loadAndRender);
+// Load button
+refreshBtn.addEventListener("click", loadRestaurants);
 
-reviewForm.addEventListener("submit", async (e) => {
+// Upload form
+uploadForm.addEventListener("submit", async (e) => {
   e.preventDefault();
-  const statusEl = document.querySelector("#status");
-  statusEl.textContent = "Uploading...";
+  setUploadStatus("Uploading...");
+
   try {
-    await uploadReview(reviewForm);
-    statusEl.textContent = "Upload successful.";
-    reviewForm.reset();
-    await loadAndRender();
+    await uploadReviewWithImage();
+    setUploadStatus("Upload successful ✅");
+    uploadForm.reset();
+    // optional: refresh restaurants after upload
+    await loadRestaurants();
   } catch (err) {
-    statusEl.textContent = `Upload failed: ${err.message}`;
+    setUploadStatus(`Upload failed: ${err.message}`);
+    console.error(err);
     alert(err.message);
   }
 });
 
 // Initial load
-loadAndRender();
+loadRestaurants();
