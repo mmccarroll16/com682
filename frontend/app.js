@@ -1,8 +1,8 @@
 // Logic App endpoints (all provided)
 const CIA_URL = "https://prod-02.italynorth.logic.azure.com/workflows/438f49f8253b4c6899482f6ac1bfa072/triggers/When_an_HTTP_request_is_received/paths/invoke/rest/v1/assets?api-version=2016-10-01&sp=%2Ftriggers%2FWhen_an_HTTP_request_is_received%2Frun&sv=1.0&sig=eqZYTEoJrYYYR7-JwgT12Kq9O-So9-KbilcscE3qL9E";
 const CIA_IMAGES_URL = "https://prod-12.italynorth.logic.azure.com:443/workflows/2200a2abcb2d4b72916e5903b8009c15/triggers/When_an_HTTP_request_is_received/paths/invoke?api-version=2016-10-01&sp=%2Ftriggers%2FWhen_an_HTTP_request_is_received%2Frun&sv=1.0&sig=ogcc4lng3zhf4SOs6dVE15c9o3fXcPkjNC6q0MZrFR8";
-// Delete endpoint (use assets path; Logic App trigger expects POST)
-const DIA_URL = "https://prod-06.italynorth.logic.azure.com/workflows/66f84f42ed204cad8460e53e61c91a2b/triggers/When_an_HTTP_request_is_received/paths/invoke/rest/v1/assests/%7Bid%7D?api-version=2016-10-01&sp=%2Ftriggers%2FWhen_an_HTTP_request_is_received%2Frun&sv=1.0&sig=6kY1LTq8-39mk8ePr1LddlF6qcnv1gxarAVYet0GNRM";
+// Delete endpoint (DELETE /rest/v1/assets/{id})
+const DIA_URL = "https://prod-06.italynorth.logic.azure.com/workflows/66f84f42ed204cad8460e53e61c91a2b/triggers/When_an_HTTP_request_is_received/paths/invoke/rest/v1/assets/{id}?api-version=2016-10-01&sp=%2Ftriggers%2FWhen_an_HTTP_request_is_received%2Frun&sv=1.0&sig=6kY1LTq8-39mk8ePr1LddlF6qcnv1gxarAVYet0GNRM";
 const RAA_URL = "https://prod-03.italynorth.logic.azure.com/workflows/60d0ac063b2b4b719b11d3682a9a9a0c/triggers/When_an_HTTP_request_is_received/paths/invoke/rest/v1/assets?api-version=2016-10-01&sp=%2Ftriggers%2FWhen_an_HTTP_request_is_received%2Frun&sv=1.0&sig=kkJoDMv_3TUZ3YRMdFMxZ-i0FZTsxcRt3GvbPAoDNEs";
 const RIA_URL = "https://prod-00.italynorth.logic.azure.com/workflows/d0af0d70328d47a8ad27f7c25e035de9/triggers/When_an_HTTP_request_is_received/paths/invoke/rests/assets/{id}?api-version=2016-10-01&sp=%2Ftriggers%2FWhen_an_HTTP_request_is_received%2Frun&sv=1.0&sig=xrq9bm3gWPRFCBQJ0ete6qnfTf9KK5PySeme7YzwprE";
 const RIA_IMAGES_URL = "https://prod-06.italynorth.logic.azure.com:443/workflows/7699903ea01b48f3adb9fc50033dd1c8/triggers/When_an_HTTP_request_is_received/paths/invoke?api-version=2016-10-01&sp=%2Ftriggers%2FWhen_an_HTTP_request_is_received%2Frun&sv=1.0&sig=CUwD8epstITJInT-mbEJ1RnOeX5_Cz-vfciUlDbb46E";
@@ -148,15 +148,14 @@ async function renderAssets() {
       const div = document.createElement("div");
       div.className = "item";
 
-      // Prefer restaurantId; do NOT fall back to blob id
-      const restaurantId = toStr(d.restaurantId ?? d.RestaurantId ?? d.restaurantID);
+      const restaurantId = toStr(d.restaurantId ?? d.RestaurantId ?? d.restaurantID ?? d.id ?? d.ID);
       const restaurantName = toStr(d.restaurantName ?? d.RestaurantName);
       const address = toStr(d.address ?? d.Address);
       const city = toStr(d.city ?? d.City);
       const rating = toStr(d.rating ?? d.Rating);
       const comment = toStr(d.comment ?? d.Comment);
       const pathVal = toStr(d.path ?? d.filePath ?? d.fileLocator);
-      const idVal = toStr(d.id);
+      const idVal = toStr(d.id ?? d.ID);
 
       div.dataset.restaurantId = restaurantId;
 
@@ -166,6 +165,21 @@ async function renderAssets() {
       img.onerror = () => console.error("Blob load failed", { url: imgUrl, record: d });
 
       div.appendChild(img);
+      const deleteBtn = document.createElement("button");
+      deleteBtn.type = "button";
+      deleteBtn.className = "delete-btn";
+      deleteBtn.dataset.restaurantId = restaurantId;
+      deleteBtn.textContent = "Delete";
+
+      const editBtn = document.createElement("button");
+      editBtn.type = "button";
+      editBtn.className = "edit-btn";
+      editBtn.dataset.restaurantId = restaurantId;
+      editBtn.dataset.name = restaurantName;
+      editBtn.dataset.address = address;
+      editBtn.dataset.city = city;
+      editBtn.textContent = "Edit";
+
       div.innerHTML += `
         <div class="small"><b>File:</b> ${d.fileName ?? ""}</div>
         <div class="small"><b>Restaurant:</b> ${restaurantId}</div>
@@ -174,13 +188,9 @@ async function renderAssets() {
         <div class="small"><b>Comment:</b> ${comment}</div>
         <div class="small"><b>Path:</b> ${pathVal}</div>
         <div class="small"><b>ID:</b> ${idVal}</div>
-        <button type="button" class="delete-btn">Delete</button>
-        <button type="button" class="edit-btn"
-          data-name="${restaurantName}"
-          data-address="${address}"
-          data-city="${city}"
-        >Edit</button>
       `;
+      div.appendChild(deleteBtn);
+      div.appendChild(editBtn);
       $("gallery").appendChild(div);
     }
   } catch (err) {
@@ -194,11 +204,11 @@ $("gallery").addEventListener("click", async (e) => {
   if (e.target.tagName !== "BUTTON") return;
 
   const card = e.target.closest(".item");
-  const restaurantId = card?.dataset.restaurantId;
+  const restaurantId = e.target.dataset.restaurantId || card?.dataset.restaurantId;
 
   if (e.target.classList.contains("edit-btn")) {
     if (!restaurantId) {
-      alert("Cannot edit: missing restaurantId on this record.");
+      alert("Missing restaurantId for edit");
       console.log("Edit missing restaurantId", { card, target: e.target });
       return;
     }
@@ -229,7 +239,7 @@ $("gallery").addEventListener("click", async (e) => {
 
   if (e.target.classList.contains("delete-btn")) {
     if (!restaurantId) {
-      alert("Cannot delete: missing restaurantId on this record.");
+      alert("Missing restaurantId for delete");
       console.log("Delete missing restaurantId", { card, target: e.target });
       return;
     }
