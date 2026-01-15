@@ -7,28 +7,28 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <h1>LocalBites – Upload & Gallery</h1>
+  <h1>LocalBites Upload & Reviews</h1>
 
   <section class="card">
-    <h2>Upload image + review</h2>
+    <h2>Upload review + image</h2>
 
     <form id="uploadForm">
-      <label>Restaurant ID</label>
+      <label for="restaurantId">Restaurant ID</label>
       <input id="restaurantId" required />
 
-      <label>User ID</label>
+      <label for="userID">User ID</label>
       <input id="userID" required />
 
-      <label>User Name</label>
+      <label for="userName">User Name</label>
       <input id="userName" required />
 
-      <label>Rating (1–5)</label>
+      <label for="rating">Rating (1-5)</label>
       <input id="rating" type="number" min="1" max="5" required />
 
-      <label>Comment</label>
+      <label for="comment">Comment</label>
       <input id="comment" required />
 
-      <label>Choose Image</label>
+      <label for="file">Choose Image</label>
       <input id="file" type="file" accept="image/*" required />
 
       <button type="submit">Upload</button>
@@ -37,8 +37,9 @@
   </section>
 
   <section class="card">
-    <h2>Gallery</h2>
-    <button id="refreshBtn">Refresh</button>
+    <h2>Images, restaurants, and reviews</h2>
+    <button id="refreshBtn" type="button">Load all</button>
+    <p id="loadStatus" class="small"></p>
     <div id="gallery" class="gallery"></div>
   </section>
 
