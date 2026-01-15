@@ -7,50 +7,79 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <h1>LocalBites Media</h1>
+  <h1>LocalBites Upload & Reviews</h1>
 
-  <!-- TOP BOXES (the layout you said you liked) -->
-  <div class="top-grid">
-    <section class="card">
-      <h2>Upload review + image</h2>
+  <section class="card">
+    <h2>Create restaurant (CRUD)</h2>
+    <form id="createRestaurantForm">
+      <label for="newName">Restaurant Name</label>
+      <input id="newName" required />
 
-      <form id="reviewForm">
-        <label for="restaurantId">Restaurant ID</label>
-        <input id="restaurantId" name="restaurantId" required />
+      <label for="newAddress">Address</label>
+      <input id="newAddress" required />
 
-        <label for="userID">User ID</label>
-        <input id="userID" name="userID" required />
+      <label for="newCity">City</label>
+      <input id="newCity" required />
 
-        <label for="userName">User Name</label>
-        <input id="userName" name="userName" required />
+      <button type="submit">Create</button>
+      <p id="createStatus" class="small"></p>
+    </form>
+  </section>
 
-        <label for="rating">Rating (1-5)</label>
-        <input id="rating" name="rating" type="number" min="1" max="5" required />
+  <!-- ✅ GLOBAL TEXT-ONLY REVIEW FORM (back at the top) -->
+  <section class="card">
+    <h2>Add review (text-only)</h2>
+    <form id="textReviewForm">
+      <label for="reviewRestaurantId">Restaurant ID</label>
+      <input id="reviewRestaurantId" required />
 
-        <label for="comment">Comment</label>
-        <input id="comment" name="comment" required />
+      <label for="reviewUserName">Your name</label>
+      <input id="reviewUserName" required />
 
-        <label for="file">Choose Image</label>
-        <input id="file" name="file" type="file" accept="image/*" required />
+      <label for="reviewRating">Rating (1-5)</label>
+      <input id="reviewRating" type="number" min="1" max="5" required />
 
-        <button type="submit">Upload</button>
-        <p id="uploadStatus" class="small"></p>
-      </form>
-    </section>
+      <label for="reviewComment">Comment</label>
+      <input id="reviewComment" required />
 
-    <section class="card">
-      <h2>Restaurants</h2>
-      <button id="loadRestaurantsBtn" type="button">Load all restaurants</button>
+      <button type="submit">Add review</button>
+      <p id="textReviewStatus" class="small"></p>
+    </form>
+  </section>
+
+  <section class="card">
+    <h2>Upload review + image</h2>
+
+    <form id="uploadForm">
+      <label for="restaurantId">Restaurant ID</label>
+      <input id="restaurantId" required />
+
+      <label for="userID">User ID</label>
+      <input id="userID" required />
+
+      <label for="userName">User Name</label>
+      <input id="userName" required />
+
+      <label for="rating">Rating (1-5)</label>
+      <input id="rating" type="number" min="1" max="5" required />
+
+      <label for="comment">Comment</label>
+      <input id="comment" required />
+
+      <label for="file">Choose Image</label>
+      <input id="file" type="file" accept="image/*" required />
+
+      <button type="submit">Upload</button>
       <p id="status" class="small"></p>
+    </form>
+  </section>
 
-      <p class="small">
-        Tip: Reviews you upload will appear under the matching restaurant card (saved locally).
-      </p>
-    </section>
-  </div>
-
-  <!-- LIST -->
-  <main id="restaurantsList" class="stack"></main>
+  <section class="card">
+    <h2>Restaurants</h2>
+    <button id="refreshBtn" type="button">Load all</button>
+    <p id="loadStatus" class="small"></p>
+    <div id="gallery" class="gallery"></div>
+  </section>
 
   <script src="app.js"></script>
 </body>
