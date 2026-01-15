@@ -1,8 +1,8 @@
 // Logic App endpoints (all provided)
 const CIA_URL = "https://prod-02.italynorth.logic.azure.com/workflows/438f49f8253b4c6899482f6ac1bfa072/triggers/When_an_HTTP_request_is_received/paths/invoke/rest/v1/assets?api-version=2016-10-01&sp=%2Ftriggers%2FWhen_an_HTTP_request_is_received%2Frun&sv=1.0&sig=eqZYTEoJrYYYR7-JwgT12Kq9O-So9-KbilcscE3qL9E";
 const CIA_IMAGES_URL = "https://prod-12.italynorth.logic.azure.com:443/workflows/2200a2abcb2d4b72916e5903b8009c15/triggers/When_an_HTTP_request_is_received/paths/invoke?api-version=2016-10-01&sp=%2Ftriggers%2FWhen_an_HTTP_request_is_received%2Frun&sv=1.0&sig=ogcc4lng3zhf4SOs6dVE15c9o3fXcPkjNC6q0MZrFR8";
-// Delete endpoint (corrected path: assets instead of assests)
-const DIA_URL = "https://prod-06.italynorth.logic.azure.com/workflows/66f84f42ed204cad8460e53e61c91a2b/triggers/When_an_HTTP_request_is_received/paths/invoke/rest/v1/assests/%7Bid%7D?api-version=2016-10-01&sp=%2Ftriggers%2FWhen_an_HTTP_request_is_received%2Frun&sv=1.0&sig=6kY1LTq8-39mk8ePr1LddlF6qcnv1gxarAVYet0GNRM";
+// Delete endpoint (use assets path; Logic App trigger expects POST)
+const DIA_URL = "https://prod-06.italynorth.logic.azure.com/workflows/66f84f42ed204cad8460e53e61c91a2b/triggers/When_an_HTTP_request_is_received/paths/invoke/rest/v1/assets/{id}?api-version=2016-10-01&sp=%2Ftriggers%2FWhen_an_HTTP_request_is_received%2Frun&sv=1.0&sig=6kY1LTq8-39mk8ePr1LddlF6qcnv1gxarAVYet0GNRM";
 const RAA_URL = "https://prod-03.italynorth.logic.azure.com/workflows/60d0ac063b2b4b719b11d3682a9a9a0c/triggers/When_an_HTTP_request_is_received/paths/invoke/rest/v1/assets?api-version=2016-10-01&sp=%2Ftriggers%2FWhen_an_HTTP_request_is_received%2Frun&sv=1.0&sig=kkJoDMv_3TUZ3YRMdFMxZ-i0FZTsxcRt3GvbPAoDNEs";
 const RIA_URL = "https://prod-00.italynorth.logic.azure.com/workflows/d0af0d70328d47a8ad27f7c25e035de9/triggers/When_an_HTTP_request_is_received/paths/invoke/rests/assets/{id}?api-version=2016-10-01&sp=%2Ftriggers%2FWhen_an_HTTP_request_is_received%2Frun&sv=1.0&sig=xrq9bm3gWPRFCBQJ0ete6qnfTf9KK5PySeme7YzwprE";
 const RIA_IMAGES_URL = "https://prod-06.italynorth.logic.azure.com:443/workflows/7699903ea01b48f3adb9fc50033dd1c8/triggers/When_an_HTTP_request_is_received/paths/invoke?api-version=2016-10-01&sp=%2Ftriggers%2FWhen_an_HTTP_request_is_received%2Frun&sv=1.0&sig=CUwD8epstITJInT-mbEJ1RnOeX5_Cz-vfciUlDbb46E";
@@ -45,16 +45,12 @@ async function fetchAllAssets() {
   }));
 }
 
-async function deleteAsset({ id, partitionKey, filePath, fileLocator }) {
-  const url = DELETE_URL.replace("{id}", encodeURIComponent(id));
-  const body = {
-    id,
-    partitionKey: partitionKey || fileLocator || filePath || id,
-    filePath,
-    fileLocator
-  };
+async function deleteAsset({ id, restaurantId }) {
+  const targetId = restaurantId || id;
+  const url = DELETE_URL.replace("{id}", encodeURIComponent(targetId));
+  const body = { id: targetId, restaurantId: targetId };
   const res = await fetch(url, {
-    method: "DELETE",
+    method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body)
   });
@@ -96,7 +92,6 @@ async function renderAssets() {
       const urlFromPath =
         IMAGE_BASE_URL && combinedPath ? `${IMAGE_BASE_URL}/${combinedPath}` : null;
       const imgUrl = urlFromMedia ?? urlFromPath ?? "";
-      const pkCandidate = d.fileLocator || d.filePath || d.id;
       const div = document.createElement("div");
       div.className = "item";
       div.innerHTML = `
@@ -108,7 +103,7 @@ async function renderAssets() {
         <div class="small"><b>Comment:</b> ${d.comment ?? ""}</div>
         <div class="small"><b>Path:</b> ${d.filePath ?? d.fileLocator ?? ""}</div>
         <div class="small"><b>ID:</b> ${d.id ?? ""}</div>
-        <button type="button" data-id="${d.id}" data-pk="${pkCandidate ?? ""}" data-filepath="${d.filePath ?? ""}" data-filelocator="${d.fileLocator ?? ""}">Delete</button>
+        <button type="button" data-id="${d.id}" data-restaurant="${d.restaurantId ?? d.restaurantID ?? ""}">Delete</button>
       `;
       $("gallery").appendChild(div);
     }
@@ -122,12 +117,10 @@ $("refreshBtn").addEventListener("click", renderAssets);
 $("gallery").addEventListener("click", async (e) => {
   if (e.target.tagName === "BUTTON" && e.target.dataset.id) {
     const id = e.target.dataset.id;
-    const partitionKey = e.target.dataset.pk;
-    const filePath = e.target.dataset.filepath;
-    const fileLocator = e.target.dataset.filelocator;
+    const restaurantId = e.target.dataset.restaurant;
     if (!confirm("Delete this image?")) return;
     try {
-      await deleteAsset({ id, partitionKey, filePath, fileLocator });
+      await deleteAsset({ id, restaurantId });
       await renderAssets();
     } catch (err) {
       alert(`Delete failed: ${err.message}`);
