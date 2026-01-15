@@ -133,39 +133,48 @@ async function renderAssets() {
       return;
     }
 
+    const toStr = (v) => {
+      if (v === undefined || v === null) return "";
+      return typeof v === "object" ? JSON.stringify(v) : String(v);
+    };
+
     for (const d of docs) {
       const imgUrl = USE_MEDIA_URL ? d?.media?.url : getPublicBlobUrl(d);
       const div = document.createElement("div");
       div.className = "item";
 
-  const restaurantId = d.restaurantId ?? d.restaurantID ?? "";
-  const restaurantName = d.RestaurantName ?? d.restaurantName ?? "";
-  const address = d.Address ?? d.address ?? "";
-  const city = d.City ?? d.city ?? "";
+      const restaurantId = toStr(d.restaurantId ?? d.RestaurantId ?? d.restaurantID ?? d.id);
+      const restaurantName = toStr(d.restaurantName ?? d.RestaurantName);
+      const address = toStr(d.address ?? d.Address);
+      const city = toStr(d.city ?? d.City);
+      const rating = toStr(d.rating ?? d.Rating);
+      const comment = toStr(d.comment ?? d.Comment);
+      const pathVal = toStr(d.path ?? d.filePath ?? d.fileLocator);
+      const idVal = toStr(d.id);
 
-  const img = document.createElement("img");
-  img.src = imgUrl;
-  img.alt = d.fileName ?? "image";
-  img.onerror = () => console.error("Blob load failed", { url: imgUrl, record: d });
+      div.dataset.restaurantId = restaurantId;
 
-  div.appendChild(img);
-  div.innerHTML += `
-    <div class="small"><b>File:</b> ${d.fileName ?? ""}</div>
-    <div class="small"><b>Restaurant:</b> ${restaurantId}</div>
-    <div class="small"><b>User:</b> ${d.userName ?? ""} (${d.userID ?? ""})</div>
-    <div class="small"><b>Rating:</b> ${d.rating ?? ""}</div>
-    <div class="small"><b>Comment:</b> ${d.comment ?? ""}</div>
-    <div class="small"><b>Path:</b> ${d.path ?? d.filePath ?? d.fileLocator ?? ""}</div>
-    <div class="small"><b>ID:</b> ${d.id ?? ""}</div>
-    <button type="button" data-id="${d.id}" data-restaurant="${restaurantId}">Delete</button>
-    <button type="button" class="edit-btn"
-      data-id="${d.id}"
-      data-restaurant="${restaurantId}"
-      data-name="${restaurantName}"
-      data-address="${address}"
-      data-city="${city}"
-    >Edit</button>
-  `;
+      const img = document.createElement("img");
+      img.src = imgUrl;
+      img.alt = d.fileName ?? "image";
+      img.onerror = () => console.error("Blob load failed", { url: imgUrl, record: d });
+
+      div.appendChild(img);
+      div.innerHTML += `
+        <div class="small"><b>File:</b> ${d.fileName ?? ""}</div>
+        <div class="small"><b>Restaurant:</b> ${restaurantId}</div>
+        <div class="small"><b>User:</b> ${d.userName ?? ""} (${d.userID ?? ""})</div>
+        <div class="small"><b>Rating:</b> ${rating}</div>
+        <div class="small"><b>Comment:</b> ${comment}</div>
+        <div class="small"><b>Path:</b> ${pathVal}</div>
+        <div class="small"><b>ID:</b> ${idVal}</div>
+        <button type="button" class="delete-btn">Delete</button>
+        <button type="button" class="edit-btn"
+          data-name="${restaurantName}"
+          data-address="${address}"
+          data-city="${city}"
+        >Edit</button>
+      `;
       $("gallery").appendChild(div);
     }
   } catch (err) {
@@ -176,47 +185,56 @@ async function renderAssets() {
 $("refreshBtn").addEventListener("click", renderAssets);
 
 $("gallery").addEventListener("click", async (e) => {
-  if (e.target.tagName === "BUTTON" && e.target.dataset.id) {
-    if (e.target.classList.contains("edit-btn")) {
-      const restaurantId = e.target.dataset.restaurant;
-      if (!restaurantId) {
-        alert("Cannot edit: missing restaurantId on this record.");
-        return;
-      }
+  if (e.target.tagName !== "BUTTON") return;
 
-      const currentName = e.target.dataset.name || "";
-      const currentAddress = e.target.dataset.address || "";
-      const currentCity = e.target.dataset.city || "";
+  const card = e.target.closest(".item");
+  const restaurantId = card?.dataset.restaurantId;
 
-      const newName = prompt("Restaurant name:", currentName);
-      if (newName === null) return;
-      const newAddress = prompt("Address:", currentAddress);
-      if (newAddress === null) return;
-      const newCity = prompt("City:", currentCity);
-      if (newCity === null) return;
-
-      try {
-        await updateAsset({ restaurantId }, {
-          RestaurantName: newName,
-          Address: newAddress,
-          City: newCity
-        });
-        await renderAssets();
-      } catch (err) {
-        alert(err.message);
-      }
+  if (e.target.classList.contains("edit-btn")) {
+    if (!restaurantId) {
+      alert("Cannot edit: missing restaurantId on this record.");
+      console.log("Edit missing restaurantId", { card, target: e.target });
       return;
     }
 
-    const id = e.target.dataset.id;
-    const restaurantId = e.target.dataset.restaurant;
+    const currentName = e.target.dataset.name || "";
+    const currentAddress = e.target.dataset.address || "";
+    const currentCity = e.target.dataset.city || "";
+
+    const newName = prompt("Restaurant name:", currentName);
+    if (newName === null) return;
+    const newAddress = prompt("Address:", currentAddress);
+    if (newAddress === null) return;
+    const newCity = prompt("City:", currentCity);
+    if (newCity === null) return;
+
+    try {
+      await updateAsset({ restaurantId }, {
+        RestaurantName: newName,
+        Address: newAddress,
+        City: newCity
+      });
+      await renderAssets();
+    } catch (err) {
+      alert(err.message);
+    }
+    return;
+  }
+
+  if (e.target.classList.contains("delete-btn")) {
+    if (!restaurantId) {
+      alert("Cannot delete: missing restaurantId on this record.");
+      console.log("Delete missing restaurantId", { card, target: e.target });
+      return;
+    }
     if (!confirm("Delete this image?")) return;
     try {
-      await deleteAsset({ id, restaurantId });
-      await renderAssets();
+      await deleteAsset({ restaurantId });
+      card.remove();
     } catch (err) {
       alert(`Delete failed: ${err.message}`);
     }
+    return;
   }
 });
 
