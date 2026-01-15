@@ -143,14 +143,16 @@ async function renderAssets() {
       const div = document.createElement("div");
       div.className = "item";
 
-      const restaurantId = toStr(d.RestaurantId ?? d.restaurantId ?? d.restaurantID);
-      const restaurantName = toStr(d.restaurantName ?? d.RestaurantName);
-      const address = toStr(d.address ?? d.Address);
-      const city = toStr(d.city ?? d.City);
-      const rating = toStr(d.rating ?? d.Rating);
-      const comment = toStr(d.comment ?? d.Comment);
-      const pathVal = toStr(d.path ?? d.filePath ?? d.fileLocator);
-      const idVal = toStr(d.id ?? d.ID);
+      const restaurantId = toStr(decodeMaybeBase64(d.RestaurantId ?? d.restaurantId ?? d.restaurantID ?? d.id ?? d.ID));
+      const restaurantName = toStr(decodeMaybeBase64(d.restaurantName ?? d.RestaurantName));
+      const address = toStr(decodeMaybeBase64(d.address ?? d.Address));
+      const city = toStr(decodeMaybeBase64(d.city ?? d.City));
+      const rating = toStr(decodeMaybeBase64(d.rating ?? d.Rating));
+      const comment = toStr(decodeMaybeBase64(d.comment ?? d.Comment));
+      const pathVal = toStr(decodeMaybeBase64(d.path ?? d.filePath ?? d.fileLocator));
+      const idVal = toStr(decodeMaybeBase64(d.id ?? d.ID));
+      const userName = toStr(decodeMaybeBase64(d.userName ?? d.user ?? d.User));
+      const userID = toStr(decodeMaybeBase64(d.userID ?? d.UserID));
 
       div.dataset.restaurantid = restaurantId;
 
@@ -178,7 +180,7 @@ async function renderAssets() {
       div.innerHTML += `
         <div class="small"><b>File:</b> ${d.fileName ?? ""}</div>
         <div class="small"><b>Restaurant:</b> ${restaurantId}</div>
-        <div class="small"><b>User:</b> ${d.userName ?? ""} (${d.userID ?? ""})</div>
+        <div class="small"><b>User:</b> ${userName} (${userID})</div>
         <div class="small"><b>Rating:</b> ${rating}</div>
         <div class="small"><b>Comment:</b> ${comment}</div>
         <div class="small"><b>Path:</b> ${pathVal}</div>
