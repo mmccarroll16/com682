@@ -1,85 +1,46 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta charset="UTF-8">
   <title>LocalBites Media</title>
-  <link rel="stylesheet" href="style.css" />
+  <style>
+    body { font-family: Arial, sans-serif; margin: 16px; background: #f7f7f7; }
+    h1 { margin-bottom: 8px; }
+    #controls { margin-bottom: 12px; }
+    #status { margin-left: 8px; color: #555; }
+    #restaurantsList { display: grid; gap: 12px; }
+    .card { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+    .actions, .review-actions, .edit-actions { margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap; }
+    .edit-form { margin-top: 8px; padding: 8px; border: 1px dashed #ccc; border-radius: 6px; }
+    .reviews { margin-top: 10px; padding-top: 8px; border-top: 1px solid #eee; }
+    .review-item { padding: 6px; border: 1px solid #eee; border-radius: 6px; margin-top: 6px; background: #fafafa; }
+    .review-item img { max-width: 120px; display: block; margin-top: 4px; }
+    form label { display: block; margin: 4px 0; }
+    form input, form textarea, form select { width: 100%; padding: 6px; box-sizing: border-box; }
+    button { cursor: pointer; }
+  </style>
 </head>
 <body>
-  <h1>LocalBites Upload & Reviews</h1>
+  <h1>LocalBites Media</h1>
+  <div id="controls">
+    <button id="loadRestaurantsBtn">Load all restaurants</button>
+    <span id="status"></span>
+  </div>
 
-  <section class="card">
-    <h2>Create restaurant (CRUD)</h2>
-    <form id="createRestaurantForm">
-      <label for="newName">Restaurant Name</label>
-      <input id="newName" required />
+  <div id="restaurantsList"></div>
 
-      <label for="newAddress">Address</label>
-      <input id="newAddress" required />
-
-      <label for="newCity">City</label>
-      <input id="newCity" required />
-
-      <button type="submit">Create</button>
-      <p id="createStatus" class="small"></p>
-    </form>
-  </section>
-
-  <!-- ✅ GLOBAL TEXT-ONLY REVIEW FORM (back at the top) -->
-  <section class="card">
-    <h2>Add review (text-only)</h2>
-    <form id="textReviewForm">
-      <label for="reviewRestaurantId">Restaurant ID</label>
-      <input id="reviewRestaurantId" required />
-
-      <label for="reviewUserName">Your name</label>
-      <input id="reviewUserName" required />
-
-      <label for="reviewRating">Rating (1-5)</label>
-      <input id="reviewRating" type="number" min="1" max="5" required />
-
-      <label for="reviewComment">Comment</label>
-      <input id="reviewComment" required />
-
-      <button type="submit">Add review</button>
-      <p id="textReviewStatus" class="small"></p>
-    </form>
-  </section>
-
-  <section class="card">
-    <h2>Upload review + image</h2>
-
-    <form id="uploadForm">
-      <label for="restaurantId">Restaurant ID</label>
-      <input id="restaurantId" required />
-
-      <label for="userID">User ID</label>
-      <input id="userID" required />
-
-      <label for="userName">User Name</label>
-      <input id="userName" required />
-
-      <label for="rating">Rating (1-5)</label>
-      <input id="rating" type="number" min="1" max="5" required />
-
-      <label for="comment">Comment</label>
-      <input id="comment" required />
-
-      <label for="file">Choose Image</label>
-      <input id="file" type="file" accept="image/*" required />
-
-      <button type="submit">Upload</button>
-      <p id="status" class="small"></p>
-    </form>
-  </section>
-
-  <section class="card">
-    <h2>Restaurants</h2>
-    <button id="refreshBtn" type="button">Load all</button>
-    <p id="loadStatus" class="small"></p>
-    <div id="gallery" class="gallery"></div>
-  </section>
+  <h2>Upload review + photo</h2>
+  <form id="reviewForm">
+    <label>Restaurant ID <input id="restaurantIdInput" name="restaurantId" required></label>
+    <label>User ID <input id="userIdInput" name="userID" required></label>
+    <label>User Name <input id="userNameInput" name="userName" required></label>
+    <label>Rating (1-5) <input id="ratingInput" name="rating" type="number" min="1" max="5" required></label>
+    <label>Comment <input id="commentInput" name="comment" required></label>
+    <label>Filename (optional) <input id="fileNameInput" name="Filename"></label>
+    <label>Choose Image <input id="fileInput" name="file" type="file" accept="image/*"></label>
+    <button type="submit">Upload</button>
+    <p id="uploadStatus"></p>
+  </form>
 
   <script src="app.js"></script>
 </body>
