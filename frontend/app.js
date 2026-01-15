@@ -88,22 +88,39 @@ async function deleteAsset({ id, restaurantId }) {
 }
 
 async function updateAsset(record, updates) {
-  const targetId = record.restaurantId || record.id;
-  const url = UIA_URL.replace("{id}", encodeURIComponent(targetId));
+  const restaurantId = record.restaurantId || record.restaurantID;
+  if (!restaurantId) throw new Error("Missing restaurantId for update");
+
+  const url = UIA_URL.replace("{id}", encodeURIComponent(restaurantId));
   const payload = {
     ...record,
     ...updates,
-    id: targetId,
-    restaurantId: targetId
+    id: restaurantId,
+    restaurantId
   };
+
+  console.log("UPDATE request", { url, body: payload });
+
   const res = await fetch(url, {
     method: "PUT",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json"
+    },
     body: JSON.stringify(payload)
   });
+
+  const text = await res.text();
+  console.log("UPDATE response", { status: res.status, body: text });
+
   if (!res.ok) {
-    const text = await res.text();
     throw new Error(`Update failed: ${res.status} ${text}`);
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
   }
 }
 
@@ -154,6 +171,8 @@ $("gallery").addEventListener("click", async (e) => {
   if (e.target.tagName === "BUTTON" && e.target.dataset.id) {
     if (e.target.classList.contains("edit-btn")) {
       const id = e.target.dataset.id;
+      const restaurantId = e.target.dataset.restaurant;
+
       // Find the record from current DOM state (lightweight approach)
       const card = e.target.closest(".item");
       const currentRating = card?.querySelector(".small:nth-of-type(5)")?.textContent?.split(":")?.[1]?.trim() || "";
@@ -164,7 +183,7 @@ $("gallery").addEventListener("click", async (e) => {
       if (newComment === null) return;
 
       // Build a minimal record reference
-      const record = { id, restaurantId: e.target.dataset.restaurant };
+      const record = { id, restaurantId };
       try {
         await updateAsset(record, { rating: newRating, comment: newComment });
         await renderAssets();
