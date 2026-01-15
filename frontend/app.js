@@ -75,12 +75,10 @@ async function fetchAllAssets() {
 async function deleteAsset({ id, restaurantId }) {
   const targetId = restaurantId || id;
   const url = DELETE_URL.replace("{id}", encodeURIComponent(targetId));
-  const body = { id: targetId, restaurantId: targetId };
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body)
-  });
+
+  console.log("DELETE request", { method: "DELETE", url });
+
+  const res = await fetch(url, { method: "DELETE" });
   if (!res.ok) {
     const text = await res.text();
     throw new Error(`Delete failed: ${res.status} ${text}`);
@@ -93,10 +91,9 @@ async function updateAsset(record, updates) {
 
   const url = UIA_URL.replace("{id}", encodeURIComponent(restaurantId));
   const payload = {
-    ...record,
-    ...updates,
-    id: restaurantId,
-    restaurantId
+    RestaurantName: updates.RestaurantName,
+    Address: updates.Address,
+    City: updates.City
   };
 
   console.log("UPDATE request", { url, body: payload });
@@ -141,23 +138,34 @@ async function renderAssets() {
       const div = document.createElement("div");
       div.className = "item";
 
-      const img = document.createElement("img");
-      img.src = imgUrl;
-      img.alt = d.fileName ?? "image";
-      img.onerror = () => console.error("Blob load failed", { url: imgUrl, record: d });
+  const restaurantId = d.restaurantId ?? d.restaurantID ?? "";
+  const restaurantName = d.RestaurantName ?? d.restaurantName ?? "";
+  const address = d.Address ?? d.address ?? "";
+  const city = d.City ?? d.city ?? "";
 
-      div.appendChild(img);
-      div.innerHTML += `
-        <div class="small"><b>File:</b> ${d.fileName ?? ""}</div>
-        <div class="small"><b>Restaurant:</b> ${d.restaurantId ?? d.restaurantID ?? ""}</div>
-        <div class="small"><b>User:</b> ${d.userName ?? ""} (${d.userID ?? ""})</div>
-        <div class="small"><b>Rating:</b> ${d.rating ?? ""}</div>
-        <div class="small"><b>Comment:</b> ${d.comment ?? ""}</div>
-        <div class="small"><b>Path:</b> ${d.path ?? d.filePath ?? d.fileLocator ?? ""}</div>
-        <div class="small"><b>ID:</b> ${d.id ?? ""}</div>
-        <button type="button" data-id="${d.id}" data-restaurant="${d.restaurantId ?? d.restaurantID ?? ""}">Delete</button>
-        <button type="button" class="edit-btn" data-id="${d.id}">Edit</button>
-      `;
+  const img = document.createElement("img");
+  img.src = imgUrl;
+  img.alt = d.fileName ?? "image";
+  img.onerror = () => console.error("Blob load failed", { url: imgUrl, record: d });
+
+  div.appendChild(img);
+  div.innerHTML += `
+    <div class="small"><b>File:</b> ${d.fileName ?? ""}</div>
+    <div class="small"><b>Restaurant:</b> ${restaurantId}</div>
+    <div class="small"><b>User:</b> ${d.userName ?? ""} (${d.userID ?? ""})</div>
+    <div class="small"><b>Rating:</b> ${d.rating ?? ""}</div>
+    <div class="small"><b>Comment:</b> ${d.comment ?? ""}</div>
+    <div class="small"><b>Path:</b> ${d.path ?? d.filePath ?? d.fileLocator ?? ""}</div>
+    <div class="small"><b>ID:</b> ${d.id ?? ""}</div>
+    <button type="button" data-id="${d.id}" data-restaurant="${restaurantId}">Delete</button>
+    <button type="button" class="edit-btn"
+      data-id="${d.id}"
+      data-restaurant="${restaurantId}"
+      data-name="${restaurantName}"
+      data-address="${address}"
+      data-city="${city}"
+    >Edit</button>
+  `;
       $("gallery").appendChild(div);
     }
   } catch (err) {
@@ -170,22 +178,29 @@ $("refreshBtn").addEventListener("click", renderAssets);
 $("gallery").addEventListener("click", async (e) => {
   if (e.target.tagName === "BUTTON" && e.target.dataset.id) {
     if (e.target.classList.contains("edit-btn")) {
-      const id = e.target.dataset.id;
       const restaurantId = e.target.dataset.restaurant;
+      if (!restaurantId) {
+        alert("Cannot edit: missing restaurantId on this record.");
+        return;
+      }
 
-      // Find the record from current DOM state (lightweight approach)
-      const card = e.target.closest(".item");
-      const currentRating = card?.querySelector(".small:nth-of-type(5)")?.textContent?.split(":")?.[1]?.trim() || "";
-      const currentComment = card?.querySelector(".small:nth-of-type(6)")?.textContent?.split(":")?.[1]?.trim() || "";
-      const newRating = prompt("New rating (1-5):", currentRating);
-      if (newRating === null) return;
-      const newComment = prompt("New comment:", currentComment);
-      if (newComment === null) return;
+      const currentName = e.target.dataset.name || "";
+      const currentAddress = e.target.dataset.address || "";
+      const currentCity = e.target.dataset.city || "";
 
-      // Build a minimal record reference
-      const record = { id, restaurantId };
+      const newName = prompt("Restaurant name:", currentName);
+      if (newName === null) return;
+      const newAddress = prompt("Address:", currentAddress);
+      if (newAddress === null) return;
+      const newCity = prompt("City:", currentCity);
+      if (newCity === null) return;
+
       try {
-        await updateAsset(record, { rating: newRating, comment: newComment });
+        await updateAsset({ restaurantId }, {
+          RestaurantName: newName,
+          Address: newAddress,
+          City: newCity
+        });
         await renderAssets();
       } catch (err) {
         alert(err.message);
