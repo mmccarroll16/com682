@@ -12,8 +12,8 @@ const LIST_ASSETS_URL = RIA_IMAGES_URL; // returns image records with base64 fie
 const UPLOAD_URL = CIA_IMAGES_URL; // upload metadata + image
 const DELETE_URL = DIA_URL;
 
-// Set the blob base URL so images render (container path is included in filePath)
-const IMAGE_BASE_URL = "https://localbitestorageaccount.blob.core.windows.net";
+// Set the blob base URL (include container). Adjust if your container name changes.
+const IMAGE_BASE_URL = "https://localbitestorageaccountz38.blob.core.windows.net/localbitesimages";
 
 // If Logic App stores a media.url, set true to render from it (not the case with RIA_IMAGES)
 const USE_MEDIA_URL = false;
@@ -74,13 +74,11 @@ async function renderAssets() {
       const path = d.filePath || d.fileLocator || "";
       const file = d.fileName || "";
       const combinedPath = (() => {
-        if (!path) return "";
         const trimmed = path.startsWith("/") ? path.slice(1) : path;
-        // If file name is not already part of the path, append it
-        if (file && !trimmed.endsWith(file)) {
+        if (file && trimmed && !trimmed.endsWith(file)) {
           return `${trimmed}/${file}`;
         }
-        return trimmed;
+        return trimmed || file || "";
       })();
       const urlFromPath =
         IMAGE_BASE_URL && combinedPath
