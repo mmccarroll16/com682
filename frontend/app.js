@@ -73,32 +73,41 @@ async function fetchAllAssets() {
   }));
 }
 
-async function deleteAsset(restaurantId) {
-  const id = restaurantId;
-  if (!id) throw new Error("Missing restaurantId for delete");
-  const url = DELETE_URL.replace("{id}", encodeURIComponent(id));
-  console.log("DELETE request", { method: "DELETE", url, restaurantId: id });
-  const res = await fetch(url, {
-    method: "DELETE",
-    headers: { Accept: "application/json" }
-  });
+async function deleteAsset(id) {
+  if (!id) throw new Error("Missing id for delete");
+  let url;
+  if (DELETE_URL.includes("{id}")) {
+    url = DELETE_URL.replace("{id}", encodeURIComponent(id));
+  } else {
+    const [base, qs] = DELETE_URL.split("?");
+    const cleanedBase = base.replace(/\/$/, "");
+    url = `${cleanedBase}/${encodeURIComponent(id)}${qs ? `?${qs}` : ""}`;
+  }
+  console.log("DELETE request", { method: "DELETE", url, id });
+  const res = await fetch(url, { method: "DELETE", headers: { Accept: "application/json" } });
   const text = await res.text();
   if (!res.ok) throw new Error(`Delete failed: ${res.status} ${text}`);
   return text;
 }
 
-async function updateAsset(restaurantId, updates) {
-  const id = restaurantId;
-  if (!id) throw new Error("Missing restaurantId for update");
+async function updateAsset(id, updates) {
+  if (!id) throw new Error("Missing id for update");
 
-  const url = UIA_URL.replace("{id}", encodeURIComponent(id));
+  let url;
+  if (UIA_URL.includes("{id}")) {
+    url = UIA_URL.replace("{id}", encodeURIComponent(id));
+  } else {
+    const [base, qs] = UIA_URL.split("?");
+    const cleanedBase = base.replace(/\/$/, "");
+    url = `${cleanedBase}/${encodeURIComponent(id)}${qs ? `?${qs}` : ""}`;
+  }
   const payload = {
     RestaurantName: updates.RestaurantName,
     Address: updates.Address,
     City: updates.City
   };
 
-  console.log("UPDATE request", { method: "PUT", url, restaurantId: id, body: payload });
+  console.log("UPDATE request", { method: "PUT", url, id, body: payload });
 
   const res = await fetch(url, {
     method: "PUT",
@@ -155,6 +164,7 @@ async function renderAssets() {
       const userID = toStr(decodeMaybeBase64(d.userID ?? d.UserID));
 
       div.dataset.restaurantid = restaurantId;
+      div.dataset.assetId = restaurantId;
 
       const img = document.createElement("img");
       img.src = imgUrl;
@@ -165,12 +175,14 @@ async function renderAssets() {
       deleteBtn.type = "button";
       deleteBtn.className = "delete-btn";
       deleteBtn.dataset.restaurantid = restaurantId;
+      deleteBtn.dataset.assetId = restaurantId;
       deleteBtn.textContent = "Delete";
 
       const editBtn = document.createElement("button");
       editBtn.type = "button";
       editBtn.className = "edit-btn";
       editBtn.dataset.restaurantid = restaurantId;
+      editBtn.dataset.assetId = restaurantId;
       editBtn.dataset.name = restaurantName;
       editBtn.dataset.address = address;
       editBtn.dataset.city = city;
@@ -202,10 +214,10 @@ $("gallery").addEventListener("click", async (e) => {
   e.preventDefault();
 
   const card = e.target.closest(".item");
-  const restaurantId = e.target.dataset.restaurantid || card?.dataset.restaurantid;
-  if (!restaurantId) {
-    alert("Missing restaurantId");
-    console.log("Missing restaurantId", { card, target: e.target });
+  const assetId = e.target.dataset.assetId || card?.dataset.assetId;
+  if (!assetId) {
+    alert("Missing id for delete/edit");
+    console.log("Missing id", { card, target: e.target });
     return;
   }
 
@@ -218,7 +230,7 @@ $("gallery").addEventListener("click", async (e) => {
     if (newCity === null) return;
 
     try {
-      await updateAsset(restaurantId, {
+      await updateAsset(assetId, {
         RestaurantName: newName,
         Address: newAddress,
         City: newCity
@@ -233,7 +245,7 @@ $("gallery").addEventListener("click", async (e) => {
   if (e.target.classList.contains("delete-btn")) {
     if (!confirm("Delete this image?")) return;
     try {
-      await deleteAsset(restaurantId);
+      await deleteAsset(assetId);
       card.remove();
     } catch (err) {
       alert(`Delete failed: ${err.message}`);
