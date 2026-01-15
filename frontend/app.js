@@ -33,22 +33,29 @@ const decodeMaybeBase64 = (val) => {
   return val;
 };
 
-const buildBlobUrl = (record) => {
+const getPublicBlobUrl = (record) => {
   if (!record) return "";
-  const rawPath = record.path || record.filePath || record.fileLocator || "";
-  const file = record.fileName || "";
 
-  let path = rawPath.trim();
-  if (path.startsWith("/")) path = path.slice(1);
-  if (path.toLowerCase().startsWith(`${CONTAINER.toLowerCase()}/`)) {
-    path = path.slice(CONTAINER.length + 1);
+  // a) use filePath if it already contains container/blobName
+  if (record.filePath) {
+    let fp = String(record.filePath).trim();
+    if (fp.startsWith("/")) fp = fp.slice(1);
+    return `${BLOB_BASE}/${fp}`;
   }
-  if (path.endsWith("/")) path = path.slice(0, -1);
 
-  const hasFileInPath = file && path.toLowerCase().endsWith(file.toLowerCase());
-  const blobName = hasFileInPath ? path : [path, file].filter(Boolean).join("/");
-  if (!blobName) return "";
-  return `${BLOB_BASE}/${CONTAINER}/${blobName}`;
+  // b) else use fileLocator as blob name
+  if (record.fileLocator) {
+    const locator = String(record.fileLocator).replace(/^\//, "");
+    return `${BLOB_BASE}/${CONTAINER}/${locator}`;
+  }
+
+  // c) last resort: fileName (only if that is the blob name)
+  if (record.fileName) {
+    const name = String(record.fileName).replace(/^\//, "");
+    return `${BLOB_BASE}/${CONTAINER}/${name}`;
+  }
+
+  return "";
 };
 
 async function fetchAllAssets() {
@@ -93,7 +100,7 @@ async function renderAssets() {
     }
 
     for (const d of docs) {
-      const imgUrl = USE_MEDIA_URL ? d?.media?.url : buildBlobUrl(d);
+      const imgUrl = USE_MEDIA_URL ? d?.media?.url : getPublicBlobUrl(d);
       const div = document.createElement("div");
       div.className = "item";
 
