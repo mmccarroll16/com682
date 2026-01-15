@@ -20,40 +20,6 @@ const API = {
 };
 
 
-// ---------------- Azure App Insights (Advanced Feature) ----------------
-function ai() {
-  return window.appInsights || null;
-}
-function trackEvent(name, props = {}) {
-  const inst = ai();
-  if (!inst) return;
-  try {
-    inst.trackEvent({ name }, { ...props, app: "LocalBitesMedia", host: location.host });
-  } catch {}
-}
-function trackError(err, props = {}) {
-  const inst = ai();
-  if (!inst) return;
-  try {
-    inst.trackException({
-      exception: err instanceof Error ? err : new Error(String(err)),
-      properties: { ...props, app: "LocalBitesMedia", host: location.host },
-    });
-  } catch {}
-}
-async function timed(name, props, fn) {
-  const start = performance.now();
-  try {
-    const out = await fn();
-    trackEvent(name, { ...props, success: true, ms: Math.round(performance.now() - start) });
-    return out;
-  } catch (e) {
-    trackError(e, { ...props, success: false, ms: Math.round(performance.now() - start), where: name });
-    throw e;
-  }
-}
-window.addEventListener("error", (e) => trackError(e.error || e.message, { type: "window.error" }));
-window.addEventListener("unhandledrejection", (e) => trackError(e.reason, { type: "unhandledrejection" }));
 
 // ---------------- DOM ----------------
 const createRestaurantForm = document.getElementById("createRestaurantForm");

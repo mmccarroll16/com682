@@ -8,35 +8,6 @@
 </head>
 <body>
   <h1>LocalBites Upload & Reviews</h1>
- <!-- ✅ Azure Application Insights (Advanced Feature) -->
-  <script>
-    (function () {
-      var script = document.createElement("script");
-      script.src = "https://js.monitor.azure.com/scripts/b/ai.2.min.js";
-      script.async = true;
-
-      script.onload = function () {
-        window.appInsights = new Microsoft.ApplicationInsights.ApplicationInsights({
-          config: {
-            connectionString:
-              "InstrumentationKey=8de29fe0-4fec-45a3-975a-201749fdfc85;IngestionEndpoint=https://italynorth-0.in.applicationinsights.azure.com/;LiveEndpoint=https://italynorth.livediagnostics.monitor.azure.com/;ApplicationId=6e26f38b-1136-4ace-96b9-6085118c994f",
-            enableAutoRouteTracking: true,
-            disableAjaxTracking: false,
-            disableFetchTracking: false
-          }
-        });
-
-        window.appInsights.loadAppInsights();
-        window.appInsights.trackPageView();
-      };
-
-      document.head.appendChild(script);
-    })();
-  </script>
-</head>
-
-<body>
-  <h1>LocalBites Upload & Reviews</h1>
 
   <!-- TOP BOX: Upload review + image -->
   <section class="card">
