@@ -350,38 +350,6 @@ createRestaurantForm.addEventListener("submit", async (e) => {
   }
 });
 
-// ✅ GLOBAL TEXT-ONLY REVIEW FORM
-textReviewForm.addEventListener("submit", (e) => {
-  e.preventDefault();
-  setTextReviewStatus("");
-
-  const restaurantId = document.getElementById("reviewRestaurantId").value.trim();
-  const userName = document.getElementById("reviewUserName").value.trim();
-  const rating = document.getElementById("reviewRating").value.trim();
-  const comment = document.getElementById("reviewComment").value.trim();
-
-  if (!restaurantId) return setTextReviewStatus("Restaurant ID required");
-  if (!userName) return setTextReviewStatus("Name required");
-  if (!rating) return setTextReviewStatus("Rating required");
-  if (!comment) return setTextReviewStatus("Comment required");
-
-  addReviewToStore(restaurantId, {
-    id: uid(),
-    userName,
-    userID: "",
-    rating,
-    comment,
-    fileName: "",
-    previewUrl: "",
-    createdAt: new Date().toISOString(),
-  });
-
-  textReviewForm.reset();
-  setTextReviewStatus("Review added ✅");
-
-  // show under that restaurant (if loaded)
-  renderReviewsForRestaurant(restaurantId);
-});
 
 // UPLOAD review+image
 uploadForm.addEventListener("submit", async (e) => {
