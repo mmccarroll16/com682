@@ -12,9 +12,8 @@ const LIST_ASSETS_URL = RIA_IMAGES_URL; // returns image records with base64 fie
 const UPLOAD_URL = CIA_IMAGES_URL; // upload metadata + image
 const DELETE_URL = DIA_URL;
 
-// If your images live in blob storage, set the base URL to build image links, e.g.:
-// const IMAGE_BASE_URL = "https://<storage-account>.blob.core.windows.net";
-const IMAGE_BASE_URL = "";
+// Set the blob base URL so images render (container path is included in filePath)
+const IMAGE_BASE_URL = "https://localbitestorageaccountz38.blob.core.windows.net";
 
 // If Logic App stores a media.url, set true to render from it (not the case with RIA_IMAGES)
 const USE_MEDIA_URL = false;
@@ -41,14 +40,21 @@ async function fetchAllAssets() {
     ...d,
     fileName: decodeMaybeBase64(d.fileName),
     userID: decodeMaybeBase64(d.userID),
-    userName: decodeMaybeBase64(d.userName)
+    userName: decodeMaybeBase64(d.userName),
+    rating: decodeMaybeBase64(d.rating),
+    comment: decodeMaybeBase64(d.comment),
+    restaurantId: decodeMaybeBase64(d.restaurantId ?? d.restaurantID),
+    restaurantName: decodeMaybeBase64(d.restaurantName ?? d.RestaurantName)
   }));
 }
 
 async function deleteAsset(id) {
   const url = DELETE_URL.replace("{id}", encodeURIComponent(id));
   const res = await fetch(url, { method: "DELETE" });
-  if (!res.ok) throw new Error(`Delete failed: ${res.status}`);
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Delete failed: ${res.status} ${text}`);
+  }
 }
 
 async function renderAssets() {
@@ -65,7 +71,11 @@ async function renderAssets() {
 
     for (const d of docs) {
       const urlFromMedia = USE_MEDIA_URL ? d?.media?.url : null;
-      const urlFromPath = IMAGE_BASE_URL && d.filePath ? `${IMAGE_BASE_URL}${d.filePath}` : null;
+      const path = d.filePath || d.fileLocator || "";
+      const urlFromPath =
+        IMAGE_BASE_URL && path
+          ? `${IMAGE_BASE_URL}${path.startsWith("/") ? "" : "/"}${path}`
+          : null;
       const imgUrl = urlFromMedia ?? urlFromPath ?? "";
       const div = document.createElement("div");
       div.className = "item";
@@ -75,7 +85,7 @@ async function renderAssets() {
         <div class="small"><b>User:</b> ${d.userName ?? ""} (${d.userID ?? ""})</div>
         <div class="small"><b>Rating:</b> ${d.rating ?? ""}</div>
         <div class="small"><b>Comment:</b> ${d.comment ?? ""}</div>
-        <div class="small"><b>Path:</b> ${d.filePath ?? ""}</div>
+        <div class="small"><b>Path:</b> ${d.filePath ?? d.fileLocator ?? ""}</div>
         <div class="small"><b>ID:</b> ${d.id ?? ""}</div>
         <button type="button" data-id="${d.id}">Delete</button>
       `;
