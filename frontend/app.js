@@ -87,6 +87,26 @@ async function deleteAsset({ id, restaurantId }) {
   }
 }
 
+async function updateAsset(record, updates) {
+  const targetId = record.restaurantId || record.id;
+  const url = UIA_URL.replace("{id}", encodeURIComponent(targetId));
+  const payload = {
+    ...record,
+    ...updates,
+    id: targetId,
+    restaurantId: targetId
+  };
+  const res = await fetch(url, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Update failed: ${res.status} ${text}`);
+  }
+}
+
 async function renderAssets() {
   $("gallery").innerHTML = "";
   $("loadStatus").textContent = "Loading...";
@@ -119,6 +139,7 @@ async function renderAssets() {
         <div class="small"><b>Path:</b> ${d.path ?? d.filePath ?? d.fileLocator ?? ""}</div>
         <div class="small"><b>ID:</b> ${d.id ?? ""}</div>
         <button type="button" data-id="${d.id}" data-restaurant="${d.restaurantId ?? d.restaurantID ?? ""}">Delete</button>
+        <button type="button" class="edit-btn" data-id="${d.id}">Edit</button>
       `;
       $("gallery").appendChild(div);
     }
@@ -131,6 +152,28 @@ $("refreshBtn").addEventListener("click", renderAssets);
 
 $("gallery").addEventListener("click", async (e) => {
   if (e.target.tagName === "BUTTON" && e.target.dataset.id) {
+    if (e.target.classList.contains("edit-btn")) {
+      const id = e.target.dataset.id;
+      // Find the record from current DOM state (lightweight approach)
+      const card = e.target.closest(".item");
+      const currentRating = card?.querySelector(".small:nth-of-type(5)")?.textContent?.split(":")?.[1]?.trim() || "";
+      const currentComment = card?.querySelector(".small:nth-of-type(6)")?.textContent?.split(":")?.[1]?.trim() || "";
+      const newRating = prompt("New rating (1-5):", currentRating);
+      if (newRating === null) return;
+      const newComment = prompt("New comment:", currentComment);
+      if (newComment === null) return;
+
+      // Build a minimal record reference
+      const record = { id, restaurantId: e.target.dataset.restaurant };
+      try {
+        await updateAsset(record, { rating: newRating, comment: newComment });
+        await renderAssets();
+      } catch (err) {
+        alert(err.message);
+      }
+      return;
+    }
+
     const id = e.target.dataset.id;
     const restaurantId = e.target.dataset.restaurant;
     if (!confirm("Delete this image?")) return;
