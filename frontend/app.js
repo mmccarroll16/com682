@@ -14,7 +14,7 @@ const UPLOAD_URL = CIA_IMAGES_URL; // upload metadata + image
 const DELETE_URL = DIA_URL;
 
 // Set the blob base URL (account-level; path includes container)
-const IMAGE_BASE_URL = "https://localbitestorageaccountz38.blob.core.windows.net";
+const IMAGE_BASE_URL = "https://localbitesblob.blob.core.windows.net";
 
 // If Logic App stores a media.url, set true to render from it (not the case with RIA_IMAGES)
 const USE_MEDIA_URL = false;
