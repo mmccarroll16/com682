@@ -9,7 +9,23 @@
 <body>
   <h1>LocalBites Upload & Reviews</h1>
 
-  <!-- Upload review + image -->
+  <section class="card">
+    <h2>Create restaurant (CRUD)</h2>
+    <form id="createRestaurantForm">
+      <label for="newName">Restaurant Name</label>
+      <input id="newName" required />
+
+      <label for="newAddress">Address</label>
+      <input id="newAddress" required />
+
+      <label for="newCity">City</label>
+      <input id="newCity" required />
+
+      <button type="submit">Create</button>
+      <p id="createStatus" class="small"></p>
+    </form>
+  </section>
+
   <section class="card">
     <h2>Upload review + image</h2>
 
@@ -37,12 +53,10 @@
     </form>
   </section>
 
-  <!-- Restaurants CRUD -->
   <section class="card">
-    <h2>Restaurants (from RAA)</h2>
-    <button id="refreshBtn" type="button">Load all restaurants</button>
+    <h2>Restaurants</h2>
+    <button id="refreshBtn" type="button">Load all</button>
     <p id="loadStatus" class="small"></p>
-
     <div id="gallery" class="gallery"></div>
   </section>
 
