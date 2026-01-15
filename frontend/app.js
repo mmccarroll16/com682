@@ -1,34 +1,33 @@
-// app.js - FIXED (no duplicates, uses your existing HTML only)
+// app.js - LocalBites Restaurants CRUD + Review+Photo upload (no duplicate DOM)
 
 // --- API endpoints ---
 const API = {
+  // GET all restaurants (RAA)
   READ_ALL:
     "https://prod-03.italynorth.logic.azure.com/workflows/60d0ac063b2b4b719b11d3682a9a9a0c/triggers/When_an_HTTP_request_is_received/paths/invoke/rest/v1/assets?api-version=2016-10-01&sp=%2Ftriggers%2FWhen_an_HTTP_request_is_received%2Frun&sv=1.0&sig=kkJoDMv_3TUZ3YRMdFMxZ-i0FZTsxcRt3GvbPAoDNEs",
 
+  // PUT update restaurant (UIA)
   UPDATE_TEMPLATE:
     "https://prod-09.italynorth.logic.azure.com/workflows/33da03811d18412db6e949fd7859b51b/triggers/When_an_HTTP_request_is_received/paths/invoke/rest/assets/{id}?api-version=2016-10-01&sp=%2Ftriggers%2FWhen_an_HTTP_request_is_received%2Frun&sv=1.0&sig=aQ5q3EGKjL4wdj_SHE4KVEQl98wPXpOJGP1DwjF8D0c",
 
+  // DELETE restaurant (DIA)  (note: your path says "assests" - keep as-is)
   DELETE_TEMPLATE:
     "https://prod-06.italynorth.logic.azure.com/workflows/66f84f42ed204cad8460e53e61c91a2b/triggers/When_an_HTTP_request_is_received/paths/invoke/rest/v1/assests/{id}?api-version=2016-10-01&sp=%2Ftriggers%2FWhen_an_HTTP_request_is_received%2Frun&sv=1.0&sig=6kY1LTq8-39mk8ePr1LddlF6qcnv1gxarAVYet0GNRM",
 
+  // POST upload review+image (CIA-images)
   UPLOAD:
     "https://prod-12.italynorth.logic.azure.com:443/workflows/2200a2abcb2d4b72916e5903b8009c15/triggers/When_an_HTTP_request_is_received/paths/invoke?api-version=2016-10-01&sp=%2Ftriggers%2FWhen_an_HTTP_request_is_received%2Frun&sv=1.0&sig=ogcc4lng3zhf4SOs6dVE15c9o3fXcPkjNC6q0MZrFR8",
 };
 
-// --- DOM (use existing HTML; do NOT create duplicates) ---
+// --- DOM ---
 const uploadForm = document.getElementById("uploadForm");
 const refreshBtn = document.getElementById("refreshBtn");
 const gallery = document.getElementById("gallery");
 const statusEl = document.getElementById("status");
 const loadStatusEl = document.getElementById("loadStatus");
 
-if (!uploadForm || !refreshBtn || !gallery || !statusEl || !loadStatusEl) {
-  console.error("Missing required HTML elements. Check IDs in index.html.");
-}
-
 // --- helpers ---
 const safeStr = (v) => (v === null || v === undefined ? "" : String(v));
-
 const buildUrlWithId = (template, id) =>
   template.replace("{id}", encodeURIComponent(String(id)));
 
@@ -56,9 +55,8 @@ async function fetchAllRestaurants() {
   console.log("GET response", res.status, text);
 
   if (!res.ok) throw new Error(`GET failed: ${res.status} ${text}`);
-
-  // RAA returns an array of restaurants
   if (Array.isArray(json)) return json;
+
   return [];
 }
 
@@ -93,8 +91,7 @@ async function deleteRestaurant(id) {
 }
 
 async function uploadReviewWithImage() {
-  // IMPORTANT: your inputs have no "name" attributes, so FormData(form) is unreliable.
-  // Build FormData manually with the exact key names Logic Apps expects.
+  // Build FormData manually because inputs have no "name" attributes.
   const restaurantId = document.getElementById("restaurantId").value.trim();
   const userID = document.getElementById("userID").value.trim();
   const userName = document.getElementById("userName").value.trim();
@@ -129,11 +126,11 @@ async function uploadReviewWithImage() {
 
 // --- rendering ---
 function renderRestaurants(restaurants) {
-  // Clear FIRST to prevent duplicates
+  // Clear first -> prevents duplicates
   gallery.innerHTML = "";
 
   restaurants.forEach((r) => {
-    // match Postman keys: restaurantID, RestaurantName, Address, City
+    // match Postman keys exactly
     const id = r.restaurantID;
     const name = safeStr(r.RestaurantName);
     const address = safeStr(r.Address);
@@ -143,7 +140,6 @@ function renderRestaurants(restaurants) {
     card.className = "item";
     card.dataset.restaurantId = id;
 
-    // No blob/image loading here (restaurants don’t have image urls)
     card.innerHTML = `
       <div><b>restaurantID:</b> ${id}</div>
       <div><b>RestaurantName:</b> <span class="view-name">${name}</span></div>
@@ -177,7 +173,6 @@ gallery.addEventListener("click", async (e) => {
   if (!card) return;
 
   const restaurantId = card.dataset.restaurantId;
-
   const actions = card.querySelector(".actions");
   const editForm = card.querySelector(".edit-form");
 
@@ -250,8 +245,6 @@ uploadForm.addEventListener("submit", async (e) => {
     await uploadReviewWithImage();
     setUploadStatus("Upload successful ✅");
     uploadForm.reset();
-    // optional: refresh restaurants after upload
-    await loadRestaurants();
   } catch (err) {
     setUploadStatus(`Upload failed: ${err.message}`);
     console.error(err);
