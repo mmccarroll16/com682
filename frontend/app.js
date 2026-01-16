@@ -1,9 +1,13 @@
 // app.js - Restaurants CRUD + Reviews (image upload)
-// ✅ Added: SAFE Azure Application Insights tracking (won't break site if blocked)
-// ✅ Fix: file input id mismatch (#fileInput in HTML, not #file)
-// ✅ Fix: null-safe DOM hooks (your HTML doesn't have createRestaurantForm/refreshBtn/gallery/loadStatus)
-// ✅ Fix: uses #restaurantsList as the container (matches your index.html)
-// ✅ Fix: delete persistence (if backend delete returns 200 but item still comes back, we hide it locally)
+// ✅ SAFE AppInsights tracking (won't break site if blocked)
+// ✅ Works with BOTH layouts:
+//    - Restaurants container: #restaurantsList OR #gallery
+//    - Load button: #loadRestaurantsBtn OR #refreshBtn
+//    - Status text: #status OR #loadStatus
+//    - Upload status: #uploadStatus OR #status
+//    - File input: #fileInput OR #file
+// ✅ Includes optional "Create restaurant" form if present: #createRestaurantForm
+// ✅ Delete persistence: if backend returns 200 but record still appears, we hide it locally
 
 const API = {
   CIA_CREATE:
@@ -22,9 +26,8 @@ const API = {
     "https://prod-12.italynorth.logic.azure.com:443/workflows/2200a2abcb2d4b72916e5903b8009c15/triggers/When_an_HTTP_request_is_received/paths/invoke?api-version=2016-10-01&sp=%2Ftriggers%2FWhen_an_HTTP_request_is_received%2Frun&sv=1.0&sig=ogcc4lng3zhf4SOs6dVE15c9o3fXcPkjNC6q0MZrFR8",
 };
 
-// ---------------- SAFE App Insights helpers ----------------
+/* ---------------- SAFE App Insights helpers ---------------- */
 function ai() {
-  // index.html creates window.appInsights (either real instance or stub)
   return window.appInsights || null;
 }
 function trackEvent(name, props = {}) {
@@ -34,7 +37,10 @@ function trackEvent(name, props = {}) {
 }
 function trackError(err, props = {}) {
   try {
-    ai()?.trackException?.({ exception: err instanceof Error ? err : new Error(String(err)) }, props);
+    ai()?.trackException?.(
+      { exception: err instanceof Error ? err : new Error(String(err)) },
+      { ...props, app: "LocalBitesMedia", host: location.host }
+    );
   } catch {}
 }
 async function timed(name, props, fn) {
@@ -51,14 +57,36 @@ async function timed(name, props, fn) {
 window.addEventListener("error", (e) => trackError(e.error || e.message, { type: "window.error" }));
 window.addEventListener("unhandledrejection", (e) => trackError(e.reason, { type: "unhandledrejection" }));
 
-// ---------------- DOM (matches your index.html) ----------------
-const uploadForm = document.getElementById("uploadForm");
-const loadBtn = document.getElementById("loadRestaurantsBtn");
-const restaurantsList = document.getElementById("restaurantsList");
-const statusEl = document.getElementById("status");
-const uploadStatusEl = document.getElementById("uploadStatus");
+/* ---------------- Small polyfills ---------------- */
+if (!window.CSS) window.CSS = {};
+if (!CSS.escape) {
+  CSS.escape = (s) => String(s).replace(/[^\w-]/g, (c) => "\\" + c);
+}
 
-// ---------------- LocalStorage ----------------
+/* ---------------- DOM: supports both layouts ---------------- */
+const uploadForm = document.getElementById("uploadForm");
+const createRestaurantForm = document.getElementById("createRestaurantForm"); // optional
+
+const loadBtn =
+  document.getElementById("loadRestaurantsBtn") || document.getElementById("refreshBtn");
+
+const container =
+  document.getElementById("restaurantsList") || document.getElementById("gallery");
+
+const statusEl =
+  document.getElementById("loadStatus") || document.getElementById("status");
+
+const uploadStatusEl =
+  document.getElementById("uploadStatus") || document.getElementById("status");
+
+function setStatus(msg) {
+  if (statusEl) statusEl.textContent = msg || "";
+}
+function setUploadStatus(msg) {
+  if (uploadStatusEl) uploadStatusEl.textContent = msg || "";
+}
+
+/* ---------------- LocalStorage ---------------- */
 const REVIEWS_KEY = "localbites_reviews_v4";
 const DELETED_KEY = "localbites_deleted_restaurants_v1";
 
@@ -66,6 +94,65 @@ const safeStr = (v) => (v === null || v === undefined ? "" : String(v));
 
 function uid() {
   return (crypto.randomUUID && crypto.randomUUID()) || ("r_" + Math.random().toString(16).slice(2) + "_" + Date.now());
+}
+
+function getDeletedIds() {
+  try {
+    return new Set((JSON.parse(localStorage.getItem(DELETED_KEY)) || []).map(String));
+  } catch {
+    return new Set();
+  }
+}
+function addDeletedId(id) {
+  const s = getDeletedIds();
+  s.add(String(id));
+  localStorage.setItem(DELETED_KEY, JSON.stringify([...s]));
+}
+
+function loadReviewsMap() {
+  try {
+    return JSON.parse(localStorage.getItem(REVIEWS_KEY)) || {};
+  } catch {
+    return {};
+  }
+}
+function saveReviewsMap(map) {
+  localStorage.setItem(REVIEWS_KEY, JSON.stringify(map));
+}
+function addReviewToStore(restaurantId, review) {
+  const map = loadReviewsMap();
+  const rid = String(restaurantId);
+  if (!map[rid]) map[rid] = [];
+  map[rid].push(review);
+  saveReviewsMap(map);
+}
+function updateReviewInStore(restaurantId, reviewId, patch) {
+  const map = loadReviewsMap();
+  const rid = String(restaurantId);
+  map[rid] = (map[rid] || []).map((r) =>
+    r.id === reviewId ? { ...r, ...patch, updatedAt: new Date().toISOString() } : r
+  );
+  saveReviewsMap(map);
+}
+function deleteReviewFromStore(restaurantId, reviewId) {
+  const map = loadReviewsMap();
+  const rid = String(restaurantId);
+  map[rid] = (map[rid] || []).filter((r) => r.id !== reviewId);
+  saveReviewsMap(map);
+}
+function getReviewsFor(restaurantId) {
+  const map = loadReviewsMap();
+  return map[String(restaurantId)] || [];
+}
+
+/* ---------------- Helpers ---------------- */
+function escapeHtml(str) {
+  return String(str)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 }
 
 // ✅ replaces BOTH {id} and %7Bid%7D
@@ -86,64 +173,7 @@ async function readTextOrJson(res) {
   }
 }
 
-function setStatus(msg) {
-  if (statusEl) statusEl.textContent = msg || "";
-}
-function setUploadStatus(msg) {
-  if (uploadStatusEl) uploadStatusEl.textContent = msg || "";
-}
-
-function getDeletedIds() {
-  try {
-    return new Set((JSON.parse(localStorage.getItem(DELETED_KEY)) || []).map(String));
-  } catch {
-    return new Set();
-  }
-}
-function addDeletedId(id) {
-  const s = getDeletedIds();
-  s.add(String(id));
-  localStorage.setItem(DELETED_KEY, JSON.stringify([...s]));
-}
-function isDeleted(id) {
-  return getDeletedIds().has(String(id));
-}
-
-function loadReviews() {
-  try {
-    return JSON.parse(localStorage.getItem(REVIEWS_KEY)) || {};
-  } catch {
-    return {};
-  }
-}
-function saveReviews(map) {
-  localStorage.setItem(REVIEWS_KEY, JSON.stringify(map));
-}
-function addReviewToStore(restaurantId, review) {
-  const map = loadReviews();
-  const rid = String(restaurantId);
-  if (!map[rid]) map[rid] = [];
-  map[rid].push(review);
-  saveReviews(map);
-}
-function updateReviewInStore(restaurantId, reviewId, patch) {
-  const map = loadReviews();
-  const rid = String(restaurantId);
-  map[rid] = (map[rid] || []).map((r) => (r.id === reviewId ? { ...r, ...patch, updatedAt: new Date().toISOString() } : r));
-  saveReviews(map);
-}
-function deleteReviewFromStore(restaurantId, reviewId) {
-  const map = loadReviews();
-  const rid = String(restaurantId);
-  map[rid] = (map[rid] || []).filter((r) => r.id !== reviewId);
-  saveReviews(map);
-}
-function getReviewsFor(restaurantId) {
-  const map = loadReviews();
-  return map[String(restaurantId)] || [];
-}
-
-// ---------------- API ----------------
+/* ---------------- API ---------------- */
 async function fetchAllRestaurants() {
   return timed("Restaurants.ReadAll", {}, async () => {
     const res = await fetch(API.RAA_READ_ALL, { method: "GET" });
@@ -151,6 +181,19 @@ async function fetchAllRestaurants() {
     console.log("GET restaurants", res.status, text);
     if (!res.ok) throw new Error(`GET failed: ${res.status} ${text}`);
     return Array.isArray(json) ? json : [];
+  });
+}
+
+async function createRestaurant(payload) {
+  return timed("Restaurants.Create", {}, async () => {
+    const res = await fetch(API.CIA_CREATE, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const { text } = await readTextOrJson(res);
+    console.log("POST create", res.status, text);
+    if (!res.ok) throw new Error(`Create failed: ${res.status} ${text}`);
   });
 }
 
@@ -171,12 +214,9 @@ async function updateRestaurant(id, payload) {
 async function deleteRestaurant(id) {
   return timed("Restaurants.Delete", { restaurantId: String(id) }, async () => {
     const url = buildUrl(API.DIA_DELETE_TEMPLATE, id);
-
-    // ✅ no body on DELETE
     const res = await fetch(url, { method: "DELETE", headers: { Accept: "application/json" } });
     const { text } = await readTextOrJson(res);
     console.log("DELETE", url, res.status, text);
-
     if (!res.ok) throw new Error(`Delete failed: ${res.status} ${text}`);
   });
 }
@@ -188,7 +228,10 @@ async function uploadReviewWithImage() {
     const userName = document.getElementById("userName")?.value?.trim() || "";
     const rating = document.getElementById("rating")?.value?.trim() || "";
     const comment = document.getElementById("comment")?.value?.trim() || "";
-    const file = document.getElementById("fileInput")?.files?.[0];
+
+    // ✅ supports both: <input id="fileInput"> or <input id="file">
+    const fileEl = document.getElementById("fileInput") || document.getElementById("file");
+    const file = fileEl?.files?.[0];
 
     if (!restaurantId) throw new Error("Restaurant ID is required");
     if (!userID) throw new Error("User ID is required");
@@ -229,10 +272,11 @@ async function uploadReviewWithImage() {
   });
 }
 
-// ---------------- Rendering ----------------
+/* ---------------- Rendering ---------------- */
 function renderRestaurants(restaurants) {
-  if (!restaurantsList) return;
-  restaurantsList.innerHTML = "";
+  if (!container) return;
+
+  container.innerHTML = "";
 
   const deleted = getDeletedIds();
   const seen = new Set();
@@ -253,7 +297,7 @@ function renderRestaurants(restaurants) {
     card.dataset.restaurantId = restaurantId;
 
     card.innerHTML = `
-      <div><b>restaurantID:</b> ${restaurantId}</div>
+      <div><b>restaurantID:</b> ${escapeHtml(restaurantId)}</div>
       <div><b>RestaurantName:</b> <span class="view-name">${escapeHtml(name)}</span></div>
       <div><b>Address:</b> <span class="view-address">${escapeHtml(address)}</span></div>
       <div><b>City:</b> <span class="view-city">${escapeHtml(city)}</span></div>
@@ -280,7 +324,7 @@ function renderRestaurants(restaurants) {
       </div>
     `;
 
-    restaurantsList.appendChild(card);
+    container.appendChild(card);
     renderReviewsForRestaurant(restaurantId);
   });
 
@@ -288,8 +332,10 @@ function renderRestaurants(restaurants) {
 }
 
 function renderReviewsForRestaurant(restaurantId) {
+  if (!container) return;
+
   const rid = String(restaurantId);
-  const card = restaurantsList.querySelector(`.item[data-restaurant-id="${CSS.escape(rid)}"]`);
+  const card = container.querySelector(`.item[data-restaurant-id="${CSS.escape(rid)}"]`);
   if (!card) return;
 
   const listEl = card.querySelector(".review-list");
@@ -343,16 +389,7 @@ function renderReviewsForRestaurant(restaurantId) {
     });
 }
 
-function escapeHtml(str) {
-  return String(str)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
-
-// ---------------- Main load ----------------
+/* ---------------- Main load ---------------- */
 async function loadRestaurants() {
   try {
     setStatus("Loading restaurants...");
@@ -366,11 +403,33 @@ async function loadRestaurants() {
   }
 }
 
-// ---------------- Events ----------------
+/* ---------------- Events ---------------- */
 if (loadBtn) {
   loadBtn.addEventListener("click", () => {
-    trackEvent("UI.Click", { button: "loadRestaurantsBtn" });
+    trackEvent("UI.Click", { button: loadBtn.id || "load" });
     loadRestaurants();
+  });
+}
+
+if (createRestaurantForm) {
+  createRestaurantForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    trackEvent("UI.Submit", { form: "createRestaurantForm" });
+
+    const name = document.getElementById("newName")?.value?.trim() || "";
+    const address = document.getElementById("newAddress")?.value?.trim() || "";
+    const city = document.getElementById("newCity")?.value?.trim() || "";
+
+    try {
+      if (!name || !address || !city) throw new Error("Fill in name, address, and city");
+      await createRestaurant({ RestaurantName: name, Address: address, City: city });
+      createRestaurantForm.reset();
+      await loadRestaurants();
+    } catch (err) {
+      console.error(err);
+      alert(err.message);
+      trackError(err, { where: "createRestaurant" });
+    }
   });
 }
 
@@ -383,7 +442,6 @@ if (uploadForm) {
     try {
       const review = await uploadReviewWithImage();
 
-      // store locally so it appears under restaurant immediately
       addReviewToStore(review.restaurantId, {
         id: review.id,
         userName: review.userName,
@@ -407,8 +465,8 @@ if (uploadForm) {
   });
 }
 
-if (restaurantsList) {
-  restaurantsList.addEventListener("click", async (e) => {
+if (container) {
+  container.addEventListener("click", async (e) => {
     const btn = e.target.closest("button");
     if (!btn) return;
 
@@ -419,57 +477,58 @@ if (restaurantsList) {
     const actions = card.querySelector(".actions");
     const editForm = card.querySelector(".edit-form");
 
+    // ---- Restaurant CRUD ----
     try {
       if (btn.classList.contains("edit-btn")) {
-        trackEvent("UI.Click", { action: "edit_restaurant", restaurantId });
         editForm.style.display = "";
         actions.style.display = "none";
+        trackEvent("UI.Click", { action: "edit_restaurant", restaurantId });
         return;
       }
 
       if (btn.classList.contains("cancel-btn")) {
-        trackEvent("UI.Click", { action: "cancel_edit_restaurant", restaurantId });
         editForm.style.display = "none";
         actions.style.display = "";
+        trackEvent("UI.Click", { action: "cancel_edit_restaurant", restaurantId });
         return;
       }
 
       if (btn.classList.contains("save-btn")) {
-        trackEvent("UI.Click", { action: "save_restaurant", restaurantId });
         const payload = {
-          RestaurantName: card.querySelector(".edit-name").value,
-          Address: card.querySelector(".edit-address").value,
-          City: card.querySelector(".edit-city").value,
+          RestaurantName: card.querySelector(".edit-name")?.value || "",
+          Address: card.querySelector(".edit-address")?.value || "",
+          City: card.querySelector(".edit-city")?.value || "",
         };
         await updateRestaurant(restaurantId, payload);
         await loadRestaurants();
+        trackEvent("UI.Click", { action: "save_restaurant", restaurantId });
         return;
       }
 
       if (btn.classList.contains("delete-btn")) {
-        trackEvent("UI.Click", { action: "delete_restaurant", restaurantId });
         if (!confirm(`Delete restaurant ${restaurantId}?`)) return;
 
         await deleteRestaurant(restaurantId);
 
-        // ✅ remove from UI immediately
+        // remove immediately
         card.remove();
 
-        // ✅ persist "deleted" locally so it doesn't come back even if backend delete is delayed/broken
+        // persist "deleted" locally so it doesn't come back if backend is delayed/broken
         addDeletedId(restaurantId);
 
-        // optional: remove stored reviews for it
-        const map = loadReviews();
+        // delete local reviews for this restaurant
+        const map = loadReviewsMap();
         delete map[String(restaurantId)];
-        saveReviews(map);
+        saveReviewsMap(map);
 
-        // reload view
         await loadRestaurants();
+        trackEvent("UI.Click", { action: "delete_restaurant", restaurantId });
         return;
       }
     } catch (err) {
       console.error(err);
       alert(err.message);
+      trackError(err, { where: "restaurant_click" });
       return;
     }
 
@@ -482,24 +541,23 @@ if (restaurantsList) {
     const edit = reviewBox.querySelector(".review-edit");
 
     if (btn.classList.contains("review-edit-btn")) {
-      trackEvent("UI.Click", { action: "edit_review", restaurantId, reviewId });
       view.style.display = "none";
       edit.style.display = "";
+      trackEvent("UI.Click", { action: "edit_review", restaurantId, reviewId });
       return;
     }
 
     if (btn.classList.contains("review-cancel-btn")) {
-      trackEvent("UI.Click", { action: "cancel_edit_review", restaurantId, reviewId });
       edit.style.display = "none";
       view.style.display = "";
+      trackEvent("UI.Click", { action: "cancel_edit_review", restaurantId, reviewId });
       return;
     }
 
     if (btn.classList.contains("review-save-btn")) {
-      trackEvent("UI.Click", { action: "save_review", restaurantId, reviewId });
-      const newUser = reviewBox.querySelector(".rev-edit-user").value.trim();
-      const newRating = reviewBox.querySelector(".rev-edit-rating").value.trim();
-      const newComment = reviewBox.querySelector(".rev-edit-comment").value.trim();
+      const newUser = reviewBox.querySelector(".rev-edit-user")?.value?.trim() || "";
+      const newRating = reviewBox.querySelector(".rev-edit-rating")?.value?.trim() || "";
+      const newComment = reviewBox.querySelector(".rev-edit-comment")?.value?.trim() || "";
 
       updateReviewInStore(restaurantId, reviewId, {
         userName: newUser,
@@ -508,18 +566,19 @@ if (restaurantsList) {
       });
 
       renderReviewsForRestaurant(restaurantId);
+      trackEvent("UI.Click", { action: "save_review", restaurantId, reviewId });
       return;
     }
 
     if (btn.classList.contains("review-delete-btn")) {
-      trackEvent("UI.Click", { action: "delete_review", restaurantId, reviewId });
       if (!confirm("Delete this review?")) return;
       deleteReviewFromStore(restaurantId, reviewId);
       renderReviewsForRestaurant(restaurantId);
+      trackEvent("UI.Click", { action: "delete_review", restaurantId, reviewId });
       return;
     }
   });
 }
 
-// Initial load
+/* ---------------- Initial load ---------------- */
 loadRestaurants().catch((e) => trackError(e, { where: "initial_load" }));
